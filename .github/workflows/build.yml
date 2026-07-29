@@ -30,3 +30,4 @@ jobs:
         with:
           name: git-ai-windows-x64
           path: target/release/git-ai.exe
+
