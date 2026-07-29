@@ -1,0 +1,29 @@
+src/commands/git_ai_handlers.rs
+  s_2883bcb893cb89::t_6dbcc4debaddfb 555-557
+src/commands/install_hooks.rs
+  s_2883bcb893cb89::t_f0648313cc813a 1058
+  s_2883bcb893cb89::t_7bad1439d3fe2b 1135
+bash.exe.stackdump
+  h_1ef6ba91475e47 3-8,37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "0176c6def11335caf2ed3da1fc01c3f8dadfc89b",
+  "prompts": {},
+  "humans": {
+    "h_1ef6ba91475e47": {
+      "author": "unknown <baoyucheng@hisense.ad>"
+    }
+  },
+  "sessions": {
+    "s_2883bcb893cb89": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd5caac0-44ba-4fa3-ad70-def475b646e3",
+        "model": "deepseek-v4-pro"
+      },
+      "human_author": "unknown <baoyucheng@hisense.ad>"
+    }
+  }
+}
