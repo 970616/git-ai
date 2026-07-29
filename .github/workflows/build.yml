@@ -1,6 +1,9 @@
 name: Build
 
-on: [push, workflow_dispatch]
+on:
+      4 +  push:
+      5 +    branches: [main]
+      6 +  workflow_dispatch:
 
 jobs:
   linux:
