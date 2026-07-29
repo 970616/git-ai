@@ -1,0 +1,14 @@
+.github/workflows/build.yml
+  h_1ef6ba91475e47 1-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "620f1e555e421960fa41015d614c75b7a1f1f525",
+  "prompts": {},
+  "humans": {
+    "h_1ef6ba91475e47": {
+      "author": "unknown <baoyucheng@hisense.ad>"
+    }
+  }
+}
