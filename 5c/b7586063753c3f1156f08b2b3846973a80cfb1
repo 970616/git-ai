@@ -1,0 +1,1676 @@
+.cargo/config.toml
+  h_1ef6ba91475e47 1-2
+.env.example
+  h_1ef6ba91475e47 1-12
+.github/CODEOWNERS
+  h_1ef6ba91475e47 1-2
+.github/ISSUE_TEMPLATE/bug_report.yml
+  h_1ef6ba91475e47 1-61
+.github/dependabot.yml
+  h_1ef6ba91475e47 1-45
+.github/release.yml
+  h_1ef6ba91475e47 1-24
+.github/workflows/codeql.yml
+  h_1ef6ba91475e47 1-111
+.github/workflows/coverage.yml
+  h_1ef6ba91475e47 1-87
+.github/workflows/e2e-tests.yml
+  h_1ef6ba91475e47 1-67
+.github/workflows/git-core-compat.yml
+  h_1ef6ba91475e47 1-127
+.github/workflows/github-integration-tests.yml
+  h_1ef6ba91475e47 1-68
+.github/workflows/install-scripts-local.yml
+  h_1ef6ba91475e47 1-552
+.github/workflows/install-scripts-nightly.yml
+  h_1ef6ba91475e47 1-96
+.github/workflows/intellij-build.yml
+  h_1ef6ba91475e47 1-220
+.github/workflows/intellij-ui-tests.yml
+  h_1ef6ba91475e47 1-83
+.github/workflows/lint-format.yml
+  h_1ef6ba91475e47 1-104
+.github/workflows/nightly-agent-integration.yml
+  h_1ef6ba91475e47 1-405
+.github/workflows/nightly-upgrade.yml
+  h_1ef6ba91475e47 1-213
+.github/workflows/opencode-type-check.yml
+  h_1ef6ba91475e47 1-38
+.github/workflows/performance-benchmarks.yml
+  h_1ef6ba91475e47 1-146
+.github/workflows/release-intellij-plugin.yml
+  h_1ef6ba91475e47 1-110
+.github/workflows/release-vscode-extension.yml
+  h_1ef6ba91475e47 1-167
+.github/workflows/release.yml
+  h_1ef6ba91475e47 1-924
+.github/workflows/test-visualstudio-extension.yml
+  h_1ef6ba91475e47 1-92
+.github/workflows/test-vscode-extension.yml
+  h_1ef6ba91475e47 1-50
+.github/workflows/test.yml
+  h_1ef6ba91475e47 1-509
+.github/workflows/update-changelog.yml
+  h_1ef6ba91475e47 1-177
+.gitignore
+  h_1ef6ba91475e47 1-43
+.gitmodules
+  h_1ef6ba91475e47 1-3
+.vscode/settings.json
+  h_1ef6ba91475e47 1-5
+AGENTS.md
+  h_1ef6ba91475e47 1-248
+CHANGELOG.md
+  h_1ef6ba91475e47 1-49
+CLAUDE.md
+  h_1ef6ba91475e47 1
+CONTRIBUTING.md
+  h_1ef6ba91475e47 1-102
+Cargo.lock
+  h_1ef6ba91475e47 1-4624
+Cargo.toml
+  h_1ef6ba91475e47 1-88
+LICENSE
+  h_1ef6ba91475e47 1-69
+README-nix.md
+  h_1ef6ba91475e47 1-235
+README.md
+  h_1ef6ba91475e47 1-268
+Taskfile.yml
+  h_1ef6ba91475e47 1-175
+agent-support/amp/git-ai.ts
+  h_1ef6ba91475e47 1-264
+agent-support/intellij/.gitignore
+  h_1ef6ba91475e47 1-8
+"agent-support/intellij/.run/Run Plugin.run.xml"
+  h_1ef6ba91475e47 1-25
+"agent-support/intellij/.run/Run Tests.run.xml"
+  h_1ef6ba91475e47 1-25
+"agent-support/intellij/.run/Run Verifications.run.xml"
+  h_1ef6ba91475e47 1-25
+agent-support/intellij/CHANGELOG.md
+  h_1ef6ba91475e47 1-931
+agent-support/intellij/CODE_OF_CONDUCT.md
+  h_1ef6ba91475e47 1-4
+agent-support/intellij/LICENSE
+  h_1ef6ba91475e47 1-202
+agent-support/intellij/README.md
+  h_1ef6ba91475e47 1-637
+agent-support/intellij/build.gradle.kts
+  h_1ef6ba91475e47 1-187
+agent-support/intellij/codecov.yml
+  h_1ef6ba91475e47 1-10
+agent-support/intellij/gradle.properties
+  h_1ef6ba91475e47 1-33
+agent-support/intellij/gradle/libs.versions.toml
+  h_1ef6ba91475e47 1-22
+agent-support/intellij/gradle/wrapper/gradle-wrapper.properties
+  h_1ef6ba91475e47 1-9
+agent-support/intellij/gradlew
+  h_1ef6ba91475e47 1-248
+agent-support/intellij/gradlew.bat
+  h_1ef6ba91475e47 1-82
+agent-support/intellij/qodana.yml
+  h_1ef6ba91475e47 1-12
+agent-support/intellij/settings.gradle.kts
+  h_1ef6ba91475e47 1-5
+agent-support/intellij/src/main/kotlin/org/jetbrains/plugins/template/listener/DocumentChangeListener.kt
+  h_1ef6ba91475e47 1-276
+agent-support/intellij/src/main/kotlin/org/jetbrains/plugins/template/listener/DocumentSaveListener.kt
+  h_1ef6ba91475e47 1-126
+agent-support/intellij/src/main/kotlin/org/jetbrains/plugins/template/listener/StackTraceAnalyzer.kt
+  h_1ef6ba91475e47 1-105
+agent-support/intellij/src/main/kotlin/org/jetbrains/plugins/template/listener/TrackedAgent.kt
+  h_1ef6ba91475e47 1-25
+agent-support/intellij/src/main/kotlin/org/jetbrains/plugins/template/listener/VfsRefreshListener.kt
+  h_1ef6ba91475e47 1-190
+agent-support/intellij/src/main/kotlin/org/jetbrains/plugins/template/model/CheckpointModels.kt
+  h_1ef6ba91475e47 1-139
+agent-support/intellij/src/main/kotlin/org/jetbrains/plugins/template/services/DocumentChangeTrackerService.kt
+  h_1ef6ba91475e47 1-73
+agent-support/intellij/src/main/kotlin/org/jetbrains/plugins/template/services/GitAiService.kt
+  h_1ef6ba91475e47 1-432
+agent-support/intellij/src/main/kotlin/org/jetbrains/plugins/template/services/TelemetryService.kt
+  h_1ef6ba91475e47 1-441
+agent-support/intellij/src/main/kotlin/org/jetbrains/plugins/template/startup/DocumentTrackerStartupActivity.kt
+  h_1ef6ba91475e47 1-22
+agent-support/intellij/src/main/resources/META-INF/plugin.xml
+  h_1ef6ba91475e47 1-17
+agent-support/intellij/src/main/resources/META-INF/pluginIcon.svg
+  h_1ef6ba91475e47 1
+agent-support/intellij/src/main/resources/META-INF/pluginIcon_dark.svg
+  h_1ef6ba91475e47 1
+agent-support/intellij/src/test/kotlin/org/jetbrains/plugins/template/listener/VfsRefreshListenerTest.kt
+  h_1ef6ba91475e47 1-174
+agent-support/intellij/src/test/testData/rename/foo.xml
+  h_1ef6ba91475e47 1-3
+agent-support/intellij/src/test/testData/rename/foo_after.xml
+  h_1ef6ba91475e47 1-3
+agent-support/opencode/.gitignore
+  h_1ef6ba91475e47 1
+agent-support/opencode/README.md
+  h_1ef6ba91475e47 1-54
+agent-support/opencode/git-ai.ts
+  h_1ef6ba91475e47 1-515
+agent-support/opencode/package-lock.json
+  h_1ef6ba91475e47 1-440
+agent-support/opencode/package.json
+  h_1ef6ba91475e47 1-17
+agent-support/opencode/tsconfig.json
+  h_1ef6ba91475e47 1-18
+agent-support/pi/README.md
+  h_1ef6ba91475e47 1-109
+agent-support/pi/git-ai.ts
+  h_1ef6ba91475e47 1-381
+agent-support/visualstudio/DESIGN.md
+  h_1ef6ba91475e47 1-335
+agent-support/visualstudio/README.md
+  h_1ef6ba91475e47 1-52
+agent-support/visualstudio/src/GitAiVS.Tests/BinaryResolverTests.cs
+  h_1ef6ba91475e47 1-74
+agent-support/visualstudio/src/GitAiVS.Tests/CheckpointInputTests.cs
+  h_1ef6ba91475e47 1-125
+agent-support/visualstudio/src/GitAiVS.Tests/DocumentSaveListenerTests.cs
+  h_1ef6ba91475e47 1-39
+agent-support/visualstudio/src/GitAiVS.Tests/GitAiVS.Tests.csproj
+  h_1ef6ba91475e47 1-27
+agent-support/visualstudio/src/GitAiVS.Tests/GitRepoResolverTests.cs
+  h_1ef6ba91475e47 1-63
+agent-support/visualstudio/src/GitAiVS/Detection/CopilotEditDetector.cs
+  h_1ef6ba91475e47 1-145
+agent-support/visualstudio/src/GitAiVS/GitAiPackage.cs
+  h_1ef6ba91475e47 1-184
+agent-support/visualstudio/src/GitAiVS/GitAiVS.csproj
+  h_1ef6ba91475e47 1-63
+agent-support/visualstudio/src/GitAiVS/LICENSE
+  h_1ef6ba91475e47 1-21
+agent-support/visualstudio/src/GitAiVS/Listeners/DocumentSaveListener.cs
+  h_1ef6ba91475e47 1-133
+agent-support/visualstudio/src/GitAiVS/Listeners/TextBufferListener.cs
+  h_1ef6ba91475e47 1-196
+agent-support/visualstudio/src/GitAiVS/Models/CheckpointInput.cs
+  h_1ef6ba91475e47 1-152
+agent-support/visualstudio/src/GitAiVS/Services/BinaryResolver.cs
+  h_1ef6ba91475e47 1-256
+agent-support/visualstudio/src/GitAiVS/Services/CheckpointService.cs
+  h_1ef6ba91475e47 1-162
+agent-support/visualstudio/src/GitAiVS/Services/GitRepoResolver.cs
+  h_1ef6ba91475e47 1-90
+agent-support/visualstudio/src/GitAiVS/source.extension.vsixmanifest
+  h_1ef6ba91475e47 1-49
+agent-support/vscode/.gitignore
+  h_1ef6ba91475e47 1-6
+agent-support/vscode/.vscode-test.mjs
+  h_1ef6ba91475e47 1-5
+agent-support/vscode/.vscode/extensions.json
+  h_1ef6ba91475e47 1-8
+agent-support/vscode/.vscode/launch.json
+  h_1ef6ba91475e47 1-22
+agent-support/vscode/.vscode/settings.json
+  h_1ef6ba91475e47 1-11
+agent-support/vscode/.vscodeignore
+  h_1ef6ba91475e47 1-11
+agent-support/vscode/CHANGELOG.md
+  h_1ef6ba91475e47 1-9
+agent-support/vscode/LICENSE.md
+  h_1ef6ba91475e47 1
+agent-support/vscode/README.md
+  h_1ef6ba91475e47 1-47
+agent-support/vscode/eslint.config.mjs
+  h_1ef6ba91475e47 1-28
+agent-support/vscode/package-lock.json
+  h_1ef6ba91475e47 1-6742
+agent-support/vscode/package.json
+  h_1ef6ba91475e47 1-103
+agent-support/vscode/src/agent-icons/claude.svg
+  h_1ef6ba91475e47 1-9
+agent-support/vscode/src/agent-icons/codex-black.svg
+  h_1ef6ba91475e47 1-9
+agent-support/vscode/src/agent-icons/codex-white.svg
+  h_1ef6ba91475e47 1-9
+agent-support/vscode/src/agent-icons/curosr-dark.svg
+  h_1ef6ba91475e47 1-9
+agent-support/vscode/src/agent-icons/cursor-white.svg
+  h_1ef6ba91475e47 1-9
+agent-support/vscode/src/agent-icons/fallback-generic.svg
+  h_1ef6ba91475e47 1-9
+agent-support/vscode/src/agent-icons/gemini.svg
+  h_1ef6ba91475e47 1
+agent-support/vscode/src/agent-icons/grok.svg
+  h_1ef6ba91475e47 1-10
+agent-support/vscode/src/ai-edit-manager.ts
+  h_1ef6ba91475e47 1-530
+agent-support/vscode/src/ai-tab-edit-manager.ts
+  h_1ef6ba91475e47 1-149
+agent-support/vscode/src/blame-lens-manager.ts
+  h_1ef6ba91475e47 1-1671
+agent-support/vscode/src/blame-queue.ts
+  h_1ef6ba91475e47 1-167
+agent-support/vscode/src/blame-service.ts
+  h_1ef6ba91475e47 1-476
+agent-support/vscode/src/consts.ts
+  h_1ef6ba91475e47 1-17
+agent-support/vscode/src/extension.ts
+  h_1ef6ba91475e47 1-141
+agent-support/vscode/src/known-human-checkpoint-manager.ts
+  h_1ef6ba91475e47 1-161
+agent-support/vscode/src/test/extension.test.ts
+  h_1ef6ba91475e47 1-15
+agent-support/vscode/src/test/semver.test.ts
+  h_1ef6ba91475e47 1-37
+agent-support/vscode/src/test/vscode-hooks.test.ts
+  h_1ef6ba91475e47 1-17
+agent-support/vscode/src/utils/binary-path.ts
+  h_1ef6ba91475e47 1-77
+agent-support/vscode/src/utils/config.ts
+  h_1ef6ba91475e47 1-31
+agent-support/vscode/src/utils/git-api.ts
+  h_1ef6ba91475e47 1-51
+agent-support/vscode/src/utils/host-kind.ts
+  h_1ef6ba91475e47 1-68
+agent-support/vscode/src/utils/semver.ts
+  h_1ef6ba91475e47 1-111
+agent-support/vscode/src/utils/vscode-hooks.ts
+  h_1ef6ba91475e47 1-10
+agent-support/vscode/tsconfig.json
+  h_1ef6ba91475e47 1-24
+ai
+  h_1ef6ba91475e47 1
+assets/docs/agents/bake_gray.py
+  h_1ef6ba91475e47 1-131
+assets/docs/agents/pi.svg
+  h_1ef6ba91475e47 1-22
+assets/docs/badges/pi.svg
+  h_1ef6ba91475e47 1-26
+assets/docs/buttons/get-early-access.svg
+  h_1ef6ba91475e47 1-9
+assets/docs/buttons/meet-the-maintainers.svg
+  h_1ef6ba91475e47 1-9
+assets/docs/for-teams.svg
+  h_1ef6ba91475e47 1-39
+assets/docs/solo-player.svg
+  h_1ef6ba91475e47 1-26
+assets/docs/video.md
+  h_1ef6ba91475e47 1-4
+benches/notes_io.rs
+  h_1ef6ba91475e47 1-599
+data-privacy.md
+  h_1ef6ba91475e47 1-59
+docs/COVERAGE.md
+  h_1ef6ba91475e47 1-91
+docs/attribution-fuzzer-spec.md
+  h_1ef6ba91475e47 1-132
+docs/bash-attribution-recovery-plan.md
+  h_1ef6ba91475e47 1-287
+docs/daemon-trace2-ingestion-spec.md
+  h_1ef6ba91475e47 1-234
+docs/migrations/sessions-v2-note-format.md
+  h_1ef6ba91475e47 1-120
+docs/notes-backend-spec.md
+  h_1ef6ba91475e47 1-388
+docs/pr-1153-review-findings.md
+  h_1ef6ba91475e47 1-288
+docs/pull-rebase-authorship-loss-analysis-2026-06-21.md
+  h_1ef6ba91475e47 1-266
+docs/pull-rebase-hardening-worklog-2026-06-21.md
+  h_1ef6ba91475e47 1-138
+docs/rewrite-ops-spec.md
+  h_1ef6ba91475e47 1-263
+docs/rewrite-simplification-spec.md
+  h_1ef6ba91475e47 1-1033
+docs/session-event-attribution-recovery-plan.md
+  h_1ef6ba91475e47 1-226
+docs/superpowers/plans/2026-04-11-multi-ide-known-human.md
+  h_1ef6ba91475e47 1-555
+docs/superpowers/plans/2026-04-13-stats-bar-untracked.md
+  h_1ef6ba91475e47 1-464
+docs/superpowers/plans/2026-04-14-daemon-logging.md
+  h_1ef6ba91475e47 1-690
+docs/superpowers/plans/2026-04-19-remove-tmp-repo-and-libgit2.md
+  h_1ef6ba91475e47 1-1092
+docs/superpowers/plans/2026-04-20-agent-presets-rewrite.md
+  h_1ef6ba91475e47 1-2538
+docs/superpowers/plans/2026-04-20-sessions-and-trace-ids.md
+  h_1ef6ba91475e47 1-1429
+docs/superpowers/plans/2026-04-20-sessions-v2-stats-processing.md
+  h_1ef6ba91475e47 1-532
+docs/superpowers/plans/2026-04-22-drop-legacy-wrapper.md
+  h_1ef6ba91475e47 1-516
+docs/superpowers/plans/2026-04-23-remove-messages-from-sessions.md
+  h_1ef6ba91475e47 1-1027
+docs/superpowers/plans/2026-04-29-telemetry-streams-reimplement.md
+  h_1ef6ba91475e47 1-200
+docs/superpowers/plans/2026-04-30-ai-helper-script-improvements.md
+  h_1ef6ba91475e47 1-452
+docs/superpowers/plans/2026-04-30-sweep-based-transcript-discovery.md
+  h_1ef6ba91475e47 1-2772
+docs/superpowers/plans/2026-05-03-checkpoint-rewrite.md
+  h_1ef6ba91475e47 1-1518
+docs/superpowers/plans/2026-05-20-attr-fuzzer.md
+  h_1ef6ba91475e47 1-1121
+docs/superpowers/specs/2026-04-11-multi-ide-known-human-design.md
+  h_1ef6ba91475e47 1-398
+docs/superpowers/specs/2026-04-13-stats-bar-untracked-design.md
+  h_1ef6ba91475e47 1-132
+docs/superpowers/specs/2026-04-14-daemon-logging-design.md
+  h_1ef6ba91475e47 1-220
+docs/superpowers/specs/2026-04-20-agent-presets-rewrite-design.md
+  h_1ef6ba91475e47 1-578
+docs/superpowers/specs/2026-04-20-sessions-and-trace-ids-design.md
+  h_1ef6ba91475e47 1-328
+docs/superpowers/specs/2026-04-29-telemetry-streams-design.md
+  h_1ef6ba91475e47 1-741
+docs/superpowers/specs/2026-04-30-ai-helper-script-improvements-design.md
+  h_1ef6ba91475e47 1-281
+docs/superpowers/specs/2026-04-30-sweep-based-transcript-discovery-design.md
+  h_1ef6ba91475e47 1-963
+docs/superpowers/specs/2026-05-03-checkpoint-rewrite-design.md
+  h_1ef6ba91475e47 1-199
+docs/superpowers/specs/2026-05-19-transcript-secret-redaction-design.md
+  h_1ef6ba91475e47 1-138
+docs/superpowers/specs/2026-05-20-attr-fuzzer-design.md
+  h_1ef6ba91475e47 1-190
+docs/superpowers/specs/2026-06-29-daemon-log-upload-client.md
+  h_1ef6ba91475e47 1-191
+docs/telemetry-examples.md
+  h_1ef6ba91475e47 1-235
+docs/telemetry-streams-summary.md
+  h_1ef6ba91475e47 1-252
+flake.lock
+  h_1ef6ba91475e47 1-82
+flake.nix
+  h_1ef6ba91475e47 1-1052
+install.ps1
+  h_1ef6ba91475e47 1-607
+install.sh
+  h_1ef6ba91475e47 1-425
+lefthook.yml
+  h_1ef6ba91475e47 1-12
+packaging/README.md
+  h_1ef6ba91475e47 1-29
+packaging/macos/build-pkg.sh
+  h_1ef6ba91475e47 1-63
+packaging/macos/scripts/postinstall
+  h_1ef6ba91475e47 1-39
+packaging/macos/scripts/preinstall
+  h_1ef6ba91475e47 1-3
+packaging/windows/build-msi.ps1
+  h_1ef6ba91475e47 1-57
+packaging/windows/git-ai.wxs
+  h_1ef6ba91475e47 1-60
+scripts/ai
+  h_1ef6ba91475e47 1-354
+scripts/benchmarks/checkpoint/benchmark_human_non_ai_checkpoint.py
+  h_1ef6ba91475e47 1-333
+scripts/benchmarks/commit/benchmark_commit_mostly_human_few_ai.py
+  h_1ef6ba91475e47 1-417
+scripts/benchmarks/git/benchmark_modes_vs_main.py
+  h_1ef6ba91475e47 1-1387
+scripts/benchmarks/git/benchmark_nasty_modes_vs_main.py
+  h_1ef6ba91475e47 1-808
+scripts/benchmarks/git/benchmark_nasty_rebases.sh
+  h_1ef6ba91475e47 1-598
+scripts/benchmarks/git/benchmark_notes_merge.py
+  h_1ef6ba91475e47 1-228
+scripts/create_test_vsc_db.py
+  h_1ef6ba91475e47 1-127
+scripts/dev.ps1
+  h_1ef6ba91475e47 1-141
+scripts/dev.sh
+  h_1ef6ba91475e47 1-75
+scripts/generate_badges.sh
+  h_1ef6ba91475e47 1-103
+scripts/nightly/start-async-daemon.sh
+  h_1ef6ba91475e47 1-104
+scripts/nightly/stop-async-daemon.sh
+  h_1ef6ba91475e47 1-37
+scripts/nightly/test-live-agent.sh
+  h_1ef6ba91475e47 1-127
+scripts/nightly/test-synthetic-checkpoint.sh
+  h_1ef6ba91475e47 1-76
+scripts/nightly/verify-attribution.sh
+  h_1ef6ba91475e47 1-176
+scripts/nightly/verify-hook-wiring.sh
+  h_1ef6ba91475e47 1-68
+scripts/nightly/verify-synthetic-attribution.sh
+  h_1ef6ba91475e47 1-156
+scripts/repro_runaway_memory.py
+  h_1ef6ba91475e47 1-501
+scripts/test-agent-preset-v1.sh
+  h_1ef6ba91475e47 1-31
+scripts/update-coverage-threshold.sh
+  h_1ef6ba91475e47 1-44
+skills/ask/SKILL.md
+  h_1ef6ba91475e47 1-140
+skills/git-ai-search/SKILL.md
+  h_1ef6ba91475e47 1-389
+skills/prompt-analysis/SKILL.md
+  h_1ef6ba91475e47 1-587
+specs/git_ai_standard_v3.0.0.md
+  h_1ef6ba91475e47 1-914
+specs/metrics-db-timestamps-plan.md
+  h_1ef6ba91475e47 1-184
+specs/runaway-memory-plan.md
+  h_1ef6ba91475e47 1-164
+src/api/bundle.rs
+  h_1ef6ba91475e47 1-66
+src/api/cas.rs
+  h_1ef6ba91475e47 1-112
+src/api/client.rs
+  h_1ef6ba91475e47 1-571
+src/api/logs.rs
+  h_1ef6ba91475e47 1-64
+src/api/metrics.rs
+  h_1ef6ba91475e47 1-317
+src/api/mod.rs
+  h_1ef6ba91475e47 1-12
+src/api/notes.rs
+  h_1ef6ba91475e47 1-166
+src/api/types.rs
+  h_1ef6ba91475e47 1-610
+src/auth/client.rs
+  h_1ef6ba91475e47 1-439
+src/auth/credential_backend.rs
+  h_1ef6ba91475e47 1-393
+src/auth/credentials.rs
+  h_1ef6ba91475e47 1-494
+src/auth/identity.rs
+  h_1ef6ba91475e47 1-114
+src/auth/mod.rs
+  h_1ef6ba91475e47 1-12
+src/auth/state.rs
+  h_1ef6ba91475e47 1-79
+src/auth/types.rs
+  h_1ef6ba91475e47 1-202
+src/authorship/agent_detection.rs
+  h_1ef6ba91475e47 1-341
+src/authorship/attribution_recovery.rs
+  h_1ef6ba91475e47 1-2204
+src/authorship/attribution_tracker.rs
+  h_1ef6ba91475e47 1-2719
+src/authorship/authorship_log.rs
+  h_1ef6ba91475e47 1-297
+src/authorship/authorship_log_serialization.rs
+  h_1ef6ba91475e47 1-873
+src/authorship/background_agent.rs
+  h_1ef6ba91475e47 1-183
+src/authorship/conflict_resolution.rs
+  h_1ef6ba91475e47 1-158
+src/authorship/diff_ai_accepted.rs
+  h_1ef6ba91475e47 1-191
+src/authorship/diff_base.rs
+  h_1ef6ba91475e47 1-17
+src/authorship/git_ai_hooks.rs
+  h_1ef6ba91475e47 1-255
+src/authorship/hunk_shift.rs
+  h_1ef6ba91475e47 1-474
+src/authorship/ignore.rs
+  h_1ef6ba91475e47 1-474
+src/authorship/imara_diff_utils.rs
+  h_1ef6ba91475e47 1-695
+src/authorship/internal_db.rs
+  h_1ef6ba91475e47 1-1059
+src/authorship/mod.rs
+  h_1ef6ba91475e47 1-29
+src/authorship/move_detection.rs
+  h_1ef6ba91475e47 1-497
+src/authorship/post_commit.rs
+  h_1ef6ba91475e47 1-1428
+src/authorship/prompt_utils.rs
+  h_1ef6ba91475e47 1-126
+src/authorship/range_authorship.rs
+  h_1ef6ba91475e47 1-475
+src/authorship/rewrite.rs
+  h_1ef6ba91475e47 1-1900
+src/authorship/rewrite_cherry_pick.rs
+  h_1ef6ba91475e47 1-252
+src/authorship/rewrite_reset.rs
+  h_1ef6ba91475e47 1-316
+src/authorship/rewrite_revert.rs
+  h_1ef6ba91475e47 1-365
+src/authorship/rewrite_stash.rs
+  h_1ef6ba91475e47 1-825
+src/authorship/secrets.rs
+  h_1ef6ba91475e47 1-711
+src/authorship/snapshots/git_ai__authorship__authorship_log_serialization__tests__expected_format.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__authorship_log_serialization__tests__file_names_with_spaces-2.snap
+  h_1ef6ba91475e47 1-74
+src/authorship/snapshots/git_ai__authorship__authorship_log_serialization__tests__file_names_with_spaces.snap
+  h_1ef6ba91475e47 1-6
+src/authorship/snapshots/git_ai__authorship__authorship_log_serialization__tests__format_line_ranges.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__authorship_log_serialization__tests__hash_always_maps_to_prompt.snap
+  h_1ef6ba91475e47 1-6
+src/authorship/snapshots/git_ai__authorship__authorship_log_serialization__tests__line_range_sorting.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__authorship_log_serialization__tests__parse_line_ranges.snap
+  h_1ef6ba91475e47 1-16
+src/authorship/snapshots/git_ai__authorship__authorship_log_serialization__tests__serialize_deserialize_no_attestations-2.snap
+  h_1ef6ba91475e47 1-32
+src/authorship/snapshots/git_ai__authorship__authorship_log_serialization__tests__serialize_deserialize_no_attestations.snap
+  h_1ef6ba91475e47 1-6
+src/authorship/snapshots/git_ai__authorship__authorship_log_serialization__tests__serialize_deserialize_roundtrip-2.snap
+  h_1ef6ba91475e47 1-67
+src/authorship/snapshots/git_ai__authorship__authorship_log_serialization__tests__serialize_deserialize_roundtrip.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__rebase_authorship__tests__amend_add_lines_at_bottom.snap
+  h_1ef6ba91475e47 1-43
+src/authorship/snapshots/git_ai__authorship__rebase_authorship__tests__amend_add_lines_at_top.snap
+  h_1ef6ba91475e47 1-43
+src/authorship/snapshots/git_ai__authorship__rebase_authorship__tests__amend_add_lines_in_middle.snap
+  h_1ef6ba91475e47 1-43
+src/authorship/snapshots/git_ai__authorship__rebase_authorship__tests__amend_multiple_changes.snap
+  h_1ef6ba91475e47 1-115
+src/authorship/snapshots/git_ai__authorship__rebase_authorship__tests__in_order.snap
+  h_1ef6ba91475e47 1-12
+src/authorship/snapshots/git_ai__authorship__rebase_authorship__tests__with_out_of_band_commits.snap
+  h_1ef6ba91475e47 1-12
+src/authorship/snapshots/git_ai__authorship__secrets__tests__redact_secret_in_env_file.snap
+  h_1ef6ba91475e47 1-6
+src/authorship/snapshots/git_ai__authorship__stats__tests__markdown_stats_display-2.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__stats__tests__markdown_stats_display-3.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__stats__tests__markdown_stats_display-4.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__stats__tests__markdown_stats_display-5.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__stats__tests__markdown_stats_display.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__stats__tests__terminal_stats_display-2.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__stats__tests__terminal_stats_display-3.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__stats__tests__terminal_stats_display-4.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__stats__tests__terminal_stats_display-5.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__stats__tests__terminal_stats_display-6.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__stats__tests__terminal_stats_display-7.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__stats__tests__terminal_stats_display-8.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__stats__tests__terminal_stats_display-9.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__authorship__stats__tests__terminal_stats_display.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__log_fmt__authorship_log_serialization__tests__conversion_from_old_format.snap
+  h_1ef6ba91475e47 1-12
+src/authorship/snapshots/git_ai__log_fmt__authorship_log_serialization__tests__expected_format.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__log_fmt__authorship_log_serialization__tests__file_names_with_spaces-2.snap
+  h_1ef6ba91475e47 1-67
+src/authorship/snapshots/git_ai__log_fmt__authorship_log_serialization__tests__file_names_with_spaces.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__log_fmt__authorship_log_serialization__tests__format_line_ranges.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__log_fmt__authorship_log_serialization__tests__hash_always_maps_to_prompt.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__log_fmt__authorship_log_serialization__tests__line_range_sorting.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__log_fmt__authorship_log_serialization__tests__parse_line_ranges.snap
+  h_1ef6ba91475e47 1-16
+src/authorship/snapshots/git_ai__log_fmt__authorship_log_serialization__tests__serialize_deserialize_no_attestations-2.snap
+  h_1ef6ba91475e47 1-25
+src/authorship/snapshots/git_ai__log_fmt__authorship_log_serialization__tests__serialize_deserialize_no_attestations.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/snapshots/git_ai__log_fmt__authorship_log_serialization__tests__serialize_deserialize_roundtrip-2.snap
+  h_1ef6ba91475e47 1-62
+src/authorship/snapshots/git_ai__log_fmt__authorship_log_serialization__tests__serialize_deserialize_roundtrip.snap
+  h_1ef6ba91475e47 1-5
+src/authorship/stats.rs
+  h_1ef6ba91475e47 1-929
+src/authorship/transcript.rs
+  h_1ef6ba91475e47 1-470
+src/authorship/virtual_attribution.rs
+  h_1ef6ba91475e47 1-3858
+src/authorship/working_log.rs
+  h_1ef6ba91475e47 1-336
+src/bin/git-ai-test-git-shim.rs
+  h_1ef6ba91475e47 1-161
+src/checkpoint_content_budget.rs
+  h_1ef6ba91475e47 1-74
+src/ci/ci_context.rs
+  h_1ef6ba91475e47 1-1080
+src/ci/github.rs
+  h_1ef6ba91475e47 1-317
+src/ci/gitlab.rs
+  h_1ef6ba91475e47 1-800
+src/ci/mod.rs
+  h_1ef6ba91475e47 1-3
+src/ci/workflow_templates/github.yaml
+  h_1ef6ba91475e47 1-26
+src/ci/workflow_templates/gitlab.yaml
+  h_1ef6ba91475e47 1-29
+src/commands/analyze/cube.rs
+  h_1ef6ba91475e47 1-412
+src/commands/analyze/mod.rs
+  h_1ef6ba91475e47 1-336
+src/commands/analyze/sessions.rs
+  h_1ef6ba91475e47 1-1862
+src/commands/await.rs
+  h_1ef6ba91475e47 1-162
+src/commands/blame.rs
+  h_1ef6ba91475e47 1-2238
+src/commands/checkpoint_agent/bash_tool.rs
+  h_1ef6ba91475e47 1-1701
+src/commands/checkpoint_agent/mod.rs
+  h_1ef6ba91475e47 1-3
+src/commands/checkpoint_agent/orchestrator.rs
+  h_1ef6ba91475e47 1-623
+src/commands/checkpoint_agent/presets/agent_v1.rs
+  h_1ef6ba91475e47 1-389
+src/commands/checkpoint_agent/presets/ai_tab.rs
+  h_1ef6ba91475e47 1-227
+src/commands/checkpoint_agent/presets/amp.rs
+  h_1ef6ba91475e47 1-545
+src/commands/checkpoint_agent/presets/claude.rs
+  h_1ef6ba91475e47 1-271
+src/commands/checkpoint_agent/presets/cline.rs
+  h_1ef6ba91475e47 1-654
+src/commands/checkpoint_agent/presets/codex.rs
+  h_1ef6ba91475e47 1-435
+src/commands/checkpoint_agent/presets/continue_cli.rs
+  h_1ef6ba91475e47 1-195
+src/commands/checkpoint_agent/presets/cursor.rs
+  h_1ef6ba91475e47 1-680
+src/commands/checkpoint_agent/presets/droid.rs
+  h_1ef6ba91475e47 1-500
+src/commands/checkpoint_agent/presets/firebender.rs
+  h_1ef6ba91475e47 1-498
+src/commands/checkpoint_agent/presets/gemini.rs
+  h_1ef6ba91475e47 1-195
+src/commands/checkpoint_agent/presets/github_copilot/cli.rs
+  h_1ef6ba91475e47 1-592
+src/commands/checkpoint_agent/presets/github_copilot/ide.rs
+  h_1ef6ba91475e47 1-1013
+src/commands/checkpoint_agent/presets/github_copilot/mod.rs
+  h_1ef6ba91475e47 1-324
+src/commands/checkpoint_agent/presets/human.rs
+  h_1ef6ba91475e47 1-43
+src/commands/checkpoint_agent/presets/known_human.rs
+  h_1ef6ba91475e47 1-85
+src/commands/checkpoint_agent/presets/mock_ai.rs
+  h_1ef6ba91475e47 1-68
+src/commands/checkpoint_agent/presets/mock_known_human.rs
+  h_1ef6ba91475e47 1-46
+src/commands/checkpoint_agent/presets/mod.rs
+  h_1ef6ba91475e47 1-177
+src/commands/checkpoint_agent/presets/opencode.rs
+  h_1ef6ba91475e47 1-521
+src/commands/checkpoint_agent/presets/parse.rs
+  h_1ef6ba91475e47 1-360
+src/commands/checkpoint_agent/presets/pi.rs
+  h_1ef6ba91475e47 1-497
+src/commands/checkpoint_agent/presets/windsurf.rs
+  h_1ef6ba91475e47 1-415
+src/commands/ci_handlers.rs
+  h_1ef6ba91475e47 1-457
+src/commands/config.rs
+  h_1ef6ba91475e47 1-2141
+src/commands/daemon.rs
+  h_1ef6ba91475e47 1-794
+src/commands/debug.rs
+  h_1ef6ba91475e47 1-1659
+src/commands/diff.rs
+  h_1ef6ba91475e47 1-2889
+src/commands/exchange_nonce.rs
+  h_1ef6ba91475e47 1-54
+src/commands/fetch_notes.rs
+  h_1ef6ba91475e47 1-208
+src/commands/flush_metrics_db.rs
+  h_1ef6ba91475e47 1-174
+src/commands/git_ai_handlers.rs
+  h_1ef6ba91475e47 1-1271
+src/commands/git_handlers.rs
+  h_1ef6ba91475e47 1-458
+src/commands/git_hook_handlers.rs
+  h_1ef6ba91475e47 1-615
+src/commands/install_hooks.rs
+  h_1ef6ba91475e47 1-1633
+src/commands/log.rs
+  h_1ef6ba91475e47 1-1397
+src/commands/login.rs
+  h_1ef6ba91475e47 1-102
+src/commands/logout.rs
+  h_1ef6ba91475e47 1-25
+src/commands/mod.rs
+  h_1ef6ba91475e47 1-27
+src/commands/notes_migrate.rs
+  h_1ef6ba91475e47 1-732
+src/commands/personal_dashboard.rs
+  h_1ef6ba91475e47 1-47
+src/commands/show.rs
+  h_1ef6ba91475e47 1-96
+src/commands/show_prompt.rs
+  h_1ef6ba91475e47 1-109
+src/commands/snapshots/git_ai__commands__rebase_authorship__tests__amend_add_lines_at_bottom.snap
+  h_1ef6ba91475e47 1-42
+src/commands/snapshots/git_ai__commands__rebase_authorship__tests__amend_add_lines_at_top.snap
+  h_1ef6ba91475e47 1-42
+src/commands/snapshots/git_ai__commands__rebase_authorship__tests__amend_add_lines_in_middle.snap
+  h_1ef6ba91475e47 1-42
+src/commands/snapshots/git_ai__commands__rebase_authorship__tests__amend_multiple_changes.snap
+  h_1ef6ba91475e47 1-109
+src/commands/snapshots/git_ai__commands__rebase_authorship__tests__in_order.snap
+  h_1ef6ba91475e47 1-109
+src/commands/snapshots/git_ai__commands__rebase_authorship__tests__with_out_of_band_commits.snap
+  h_1ef6ba91475e47 1-118
+src/commands/status.rs
+  h_1ef6ba91475e47 1-345
+src/commands/upgrade.rs
+  h_1ef6ba91475e47 1-1858
+src/commands/usage.rs
+  h_1ef6ba91475e47 1-507
+src/commands/whoami.rs
+  h_1ef6ba91475e47 1-436
+src/config.rs
+  h_1ef6ba91475e47 1-2693
+src/daemon.rs
+  h_1ef6ba91475e47 1-9242
+src/daemon/analyzers/generic.rs
+  h_1ef6ba91475e47 1-158
+src/daemon/analyzers/history.rs
+  h_1ef6ba91475e47 1-935
+src/daemon/analyzers/mod.rs
+  h_1ef6ba91475e47 1-111
+src/daemon/analyzers/transport.rs
+  h_1ef6ba91475e47 1-170
+src/daemon/analyzers/workspace.rs
+  h_1ef6ba91475e47 1-163
+src/daemon/bash_history_db.rs
+  h_1ef6ba91475e47 1-964
+src/daemon/bash_sessions.rs
+  h_1ef6ba91475e47 1-82
+src/daemon/checkpoint.rs
+  h_1ef6ba91475e47 1-1115
+src/daemon/control_api.rs
+  h_1ef6ba91475e47 1-185
+src/daemon/coordinator.rs
+  h_1ef6ba91475e47 1-216
+src/daemon/daemon_log_layer.rs
+  h_1ef6ba91475e47 1-442
+src/daemon/domain.rs
+  h_1ef6ba91475e47 1-282
+src/daemon/family_actor.rs
+  h_1ef6ba91475e47 1-350
+src/daemon/git_backend.rs
+  h_1ef6ba91475e47 1-813
+src/daemon/global_actor.rs
+  h_1ef6ba91475e47 1-97
+src/daemon/reducer.rs
+  h_1ef6ba91475e47 1-489
+src/daemon/ref_cursor.rs
+  h_1ef6ba91475e47 1-5779
+src/daemon/rewrite_metrics.rs
+  h_1ef6ba91475e47 1-670
+src/daemon/sentry_layer.rs
+  h_1ef6ba91475e47 1-93
+src/daemon/stream_worker.rs
+  h_1ef6ba91475e47 1-2005
+src/daemon/stream_worker_tests.rs
+  h_1ef6ba91475e47 1-182
+src/daemon/sweep_coordinator.rs
+  h_1ef6ba91475e47 1-220
+src/daemon/telemetry_handle.rs
+  h_1ef6ba91475e47 1-253
+src/daemon/telemetry_worker.rs
+  h_1ef6ba91475e47 1-2253
+src/daemon/test_sync.rs
+  h_1ef6ba91475e47 1-314
+src/daemon/trace_normalizer.rs
+  h_1ef6ba91475e47 1-2143
+src/daemon/transcript_redaction.rs
+  h_1ef6ba91475e47 1-244
+src/diagnostic_sentinels.rs
+  h_1ef6ba91475e47 1-45
+src/diagnostics.rs
+  h_1ef6ba91475e47 1-1475
+src/error.rs
+  h_1ef6ba91475e47 1-312
+src/feature_flags.rs
+  h_1ef6ba91475e47 1-282
+src/git/authorship_traversal.rs
+  h_1ef6ba91475e47 1-400
+src/git/cli_parser.rs
+  h_1ef6ba91475e47 1-1032
+src/git/command_classification.rs
+  h_1ef6ba91475e47 1-720
+src/git/fast_reader.rs
+  h_1ef6ba91475e47 1-636
+src/git/mod.rs
+  h_1ef6ba91475e47 1-21
+src/git/notes_api.rs
+  h_1ef6ba91475e47 1-1188
+src/git/refs.rs
+  h_1ef6ba91475e47 1-1140
+src/git/repo_state.rs
+  h_1ef6ba91475e47 1-146
+src/git/repo_storage.rs
+  h_1ef6ba91475e47 1-963
+src/git/repository.rs
+  h_1ef6ba91475e47 1-3544
+src/git/snapshots/git_ai__git__status__tests__parse_varied_porcelain_v2_records.snap
+  h_1ef6ba91475e47 1-94
+src/git/status.rs
+  h_1ef6ba91475e47 1-395
+src/git/sync_authorship.rs
+  h_1ef6ba91475e47 1-561
+src/git/test_utils.rs
+  h_1ef6ba91475e47 1-166
+src/http.rs
+  h_1ef6ba91475e47 1-71
+src/lib.rs
+  h_1ef6ba91475e47 1-26
+src/main.rs
+  h_1ef6ba91475e47 1-91
+src/mdm/agents/amp.rs
+  h_1ef6ba91475e47 1-252
+src/mdm/agents/claude_code.rs
+  h_1ef6ba91475e47 1-1257
+src/mdm/agents/cline.rs
+  h_1ef6ba91475e47 1-646
+src/mdm/agents/codex.rs
+  h_1ef6ba91475e47 1-2472
+src/mdm/agents/cursor.rs
+  h_1ef6ba91475e47 1-664
+src/mdm/agents/droid.rs
+  h_1ef6ba91475e47 1-1241
+src/mdm/agents/firebender.rs
+  h_1ef6ba91475e47 1-574
+src/mdm/agents/gemini.rs
+  h_1ef6ba91475e47 1-1063
+src/mdm/agents/github_copilot.rs
+  h_1ef6ba91475e47 1-898
+src/mdm/agents/jetbrains.rs
+  h_1ef6ba91475e47 1-263
+src/mdm/agents/mod.rs
+  h_1ef6ba91475e47 1-60
+src/mdm/agents/opencode.rs
+  h_1ef6ba91475e47 1-492
+src/mdm/agents/pi.rs
+  h_1ef6ba91475e47 1-183
+src/mdm/agents/visual_studio.rs
+  h_1ef6ba91475e47 1-506
+src/mdm/agents/vscode.rs
+  h_1ef6ba91475e47 1-332
+src/mdm/agents/windsurf.rs
+  h_1ef6ba91475e47 1-432
+src/mdm/hook_installer.rs
+  h_1ef6ba91475e47 1-101
+src/mdm/jetbrains/detection.rs
+  h_1ef6ba91475e47 1-925
+src/mdm/jetbrains/download.rs
+  h_1ef6ba91475e47 1-164
+src/mdm/jetbrains/ide_types.rs
+  h_1ef6ba91475e47 1-168
+src/mdm/jetbrains/mod.rs
+  h_1ef6ba91475e47 1-9
+src/mdm/mod.rs
+  h_1ef6ba91475e47 1-6
+src/mdm/skills_installer.rs
+  h_1ef6ba91475e47 1-495
+src/mdm/spinner.rs
+  h_1ef6ba91475e47 1-181
+src/mdm/utils.rs
+  h_1ef6ba91475e47 1-1514
+src/metrics/attrs.rs
+  h_1ef6ba91475e47 1-741
+src/metrics/db.rs
+  h_1ef6ba91475e47 1-3034
+src/metrics/events.rs
+  h_1ef6ba91475e47 1-2222
+src/metrics/local_stats.rs
+  h_1ef6ba91475e47 1-1552
+src/metrics/mod.rs
+  h_1ef6ba91475e47 1-136
+src/metrics/pos_encoded.rs
+  h_1ef6ba91475e47 1-637
+src/metrics/types.rs
+  h_1ef6ba91475e47 1-310
+src/notes/db.rs
+  h_1ef6ba91475e47 1-973
+src/notes/mod.rs
+  h_1ef6ba91475e47 1-11
+src/notes/reference_server.rs
+  h_1ef6ba91475e47 1-521
+src/observability/mod.rs
+  h_1ef6ba91475e47 1-159
+src/observability/performance_targets.rs
+  h_1ef6ba91475e47 1-85
+src/process_timeout.rs
+  h_1ef6ba91475e47 1-268
+src/repo_url.rs
+  h_1ef6ba91475e47 1-337
+src/sandbox.rs
+  h_1ef6ba91475e47 1-28
+src/sqlite.rs
+  h_1ef6ba91475e47 1-58
+src/streams/agent.rs
+  h_1ef6ba91475e47 1-223
+src/streams/agents/amp.rs
+  h_1ef6ba91475e47 1-450
+src/streams/agents/claude.rs
+  h_1ef6ba91475e47 1-628
+src/streams/agents/codex.rs
+  h_1ef6ba91475e47 1-593
+src/streams/agents/continue_cli.rs
+  h_1ef6ba91475e47 1-387
+src/streams/agents/copilot.rs
+  h_1ef6ba91475e47 1-969
+src/streams/agents/copilot_cli.rs
+  h_1ef6ba91475e47 1-313
+src/streams/agents/copilot_otel.rs
+  h_1ef6ba91475e47 1-1019
+src/streams/agents/cursor.rs
+  h_1ef6ba91475e47 1-382
+src/streams/agents/droid.rs
+  h_1ef6ba91475e47 1-433
+src/streams/agents/gemini.rs
+  h_1ef6ba91475e47 1-464
+src/streams/agents/mod.rs
+  h_1ef6ba91475e47 1-26
+src/streams/agents/opencode.rs
+  h_1ef6ba91475e47 1-697
+src/streams/agents/pi.rs
+  h_1ef6ba91475e47 1-375
+src/streams/agents/windsurf.rs
+  h_1ef6ba91475e47 1-368
+src/streams/db.rs
+  h_1ef6ba91475e47 1-1237
+src/streams/mod.rs
+  h_1ef6ba91475e47 1-57
+src/streams/model_extraction.rs
+  h_1ef6ba91475e47 1-746
+src/streams/sweep.rs
+  h_1ef6ba91475e47 1-86
+src/streams/types.rs
+  h_1ef6ba91475e47 1-198
+src/streams/watermark.rs
+  h_1ef6ba91475e47 1-688
+src/tokio_runtime.rs
+  h_1ef6ba91475e47 1-37
+src/utils.rs
+  h_1ef6ba91475e47 1-1237
+src/uuid.rs
+  h_1ef6ba91475e47 1-98
+tests/async_mode.rs
+  h_1ef6ba91475e47 1-594
+tests/commit_hunks.rs
+  h_1ef6ba91475e47 1-578
+tests/commit_tree_update_ref.rs
+  h_1ef6ba91475e47 1-2008
+tests/config_fresh_test.rs
+  h_1ef6ba91475e47 1-327
+tests/daemon_mode.rs
+  h_1ef6ba91475e47 1-5304
+tests/e2e/installer-shell-detection.bats
+  h_1ef6ba91475e47 1-372
+tests/e2e/squash-editor.sh
+  h_1ef6ba91475e47 1-17
+tests/fixtures/amp-threads/T-019ca1ce-3ae2-7686-a41e-ccc078837f8a.json
+  h_1ef6ba91475e47 1-323
+tests/fixtures/amp-threads/T-019ca1f6-7f21-77b5-a308-65416ebbdf48.json
+  h_1ef6ba91475e47 1-262
+tests/fixtures/claude-code-with-plan.jsonl
+  h_1ef6ba91475e47 1-10
+tests/fixtures/claude-code-with-thinking.jsonl
+  h_1ef6ba91475e47 1-10
+tests/fixtures/claude-model-not-last.jsonl
+  h_1ef6ba91475e47 1-4
+tests/fixtures/codex-session-simple.jsonl
+  h_1ef6ba91475e47 1-5
+tests/fixtures/codex-session-updated.jsonl
+  h_1ef6ba91475e47 1-6
+tests/fixtures/continue-cli-session-simple.json
+  h_1ef6ba91475e47 1-119
+tests/fixtures/copilot_chat_session_lookup_auto.jsonl
+  h_1ef6ba91475e47 1-2
+tests/fixtures/copilot_chat_session_lookup_details_only.jsonl
+  h_1ef6ba91475e47 1-2
+tests/fixtures/copilot_chat_session_lookup_json_file.json
+  h_1ef6ba91475e47 1-18
+tests/fixtures/copilot_chat_session_lookup_non_auto.jsonl
+  h_1ef6ba91475e47 1-2
+tests/fixtures/copilot_chat_session_lookup_selected_model.jsonl
+  h_1ef6ba91475e47 1-2
+tests/fixtures/copilot_cli_session_events.jsonl
+  h_1ef6ba91475e47 1-6
+tests/fixtures/copilot_cli_session_no_model.jsonl
+  h_1ef6ba91475e47 1-3
+tests/fixtures/copilot_session_empty_then_patched.jsonl
+  h_1ef6ba91475e47 1-3
+tests/fixtures/copilot_session_event_stream.jsonl
+  h_1ef6ba91475e47 1-7
+tests/fixtures/copilot_session_multiline.jsonl
+  h_1ef6ba91475e47 1-6
+tests/fixtures/copilot_session_simple.json
+  h_1ef6ba91475e47 1-869
+tests/fixtures/copilot_session_simple.jsonl
+  h_1ef6ba91475e47 1
+tests/fixtures/copilot_transcript_session_lookup.jsonl
+  h_1ef6ba91475e47 1-2
+tests/fixtures/copilot_vscode_event_stream.jsonl
+  h_1ef6ba91475e47 1-13
+tests/fixtures/copilot_vscode_workspace/GitHub.copilot-chat/debug-logs/test-session-abc/models.json
+  h_1ef6ba91475e47 1-5
+tests/fixtures/copilot_vscode_workspace/GitHub.copilot-chat/transcripts/test-session-abc.jsonl
+  h_1ef6ba91475e47 1-5
+tests/fixtures/copilot_vscode_workspace/workspace.json
+  h_1ef6ba91475e47 1
+tests/fixtures/cursor-session-simple.jsonl
+  h_1ef6ba91475e47 1-11
+tests/fixtures/droid-session.jsonl
+  h_1ef6ba91475e47 1-13
+tests/fixtures/droid-session.settings.json
+  h_1ef6ba91475e47 1-15
+tests/fixtures/example-claude-code.jsonl
+  h_1ef6ba91475e47 1-38
+tests/fixtures/gemini-session-simple.jsonl
+  h_1ef6ba91475e47 1-7
+tests/fixtures/opencode-sqlite-empty/schema.sql
+  h_1ef6ba91475e47 1-16
+tests/fixtures/opencode-sqlite/schema.sql
+  h_1ef6ba91475e47 1-66
+tests/fixtures/opencode-storage/message/test-session-123/msg-assistant-001.json
+  h_1ef6ba91475e47 1-11
+tests/fixtures/opencode-storage/message/test-session-123/msg-user-001.json
+  h_1ef6ba91475e47 1-9
+tests/fixtures/opencode-storage/part/msg-assistant-001/prt-001.json
+  h_1ef6ba91475e47 1-10
+tests/fixtures/opencode-storage/part/msg-assistant-001/prt-002.json
+  h_1ef6ba91475e47 1-25
+tests/fixtures/opencode-storage/part/msg-assistant-001/prt-003.json
+  h_1ef6ba91475e47 1-10
+tests/fixtures/opencode-storage/part/msg-assistant-001/prt-004.json
+  h_1ef6ba91475e47 1-7
+tests/fixtures/opencode-storage/part/msg-user-001/prt-001.json
+  h_1ef6ba91475e47 1-10
+tests/fixtures/pi-session-ignorable.jsonl
+  h_1ef6ba91475e47 1-7
+tests/fixtures/pi-session-simple.jsonl
+  h_1ef6ba91475e47 1-3
+tests/fixtures/pi-session-tool.jsonl
+  h_1ef6ba91475e47 1-4
+tests/fixtures/windsurf-session-simple.jsonl
+  h_1ef6ba91475e47 1-27
+tests/git-compat/.gitignore
+  h_1ef6ba91475e47 1-3
+tests/git-compat/core-tests.txt
+  h_1ef6ba91475e47 1-19
+tests/git-compat/run-core-tests.py
+  h_1ef6ba91475e47 1-521
+tests/git-compat/run.py
+  h_1ef6ba91475e47 1-353
+tests/git-compat/whitelist.csv
+  h_1ef6ba91475e47 1-18
+tests/integration/agent_commits_blame.rs
+  h_1ef6ba91475e47 1-1032
+tests/integration/agent_presets_comprehensive.rs
+  h_1ef6ba91475e47 1-1097
+tests/integration/agent_usage_repo_url.rs
+  h_1ef6ba91475e47 1-230
+tests/integration/agent_v1.rs
+  h_1ef6ba91475e47 1-339
+tests/integration/ai_reflow_attribution.rs
+  h_1ef6ba91475e47 1-225
+tests/integration/ai_tab.rs
+  h_1ef6ba91475e47 1-317
+tests/integration/amend.rs
+  h_1ef6ba91475e47 1-838
+tests/integration/amp.rs
+  h_1ef6ba91475e47 1-368
+tests/integration/attribution_tracker_comprehensive.rs
+  h_1ef6ba91475e47 1-1650
+tests/integration/background_agent_attribution.rs
+  h_1ef6ba91475e47 1-170
+tests/integration/bash_attribution.rs
+  h_1ef6ba91475e47 1-850
+tests/integration/bash_tool_benchmark.rs
+  h_1ef6ba91475e47 1-973
+tests/integration/bash_tool_conformance.rs
+  h_1ef6ba91475e47 1-1404
+tests/integration/bash_tool_provenance.rs
+  h_1ef6ba91475e47 1-1634
+tests/integration/bash_tool_timeouts.rs
+  h_1ef6ba91475e47 1-233
+tests/integration/blame_comprehensive.rs
+  h_1ef6ba91475e47 1-1249
+tests/integration/blame_flags.rs
+  h_1ef6ba91475e47 1-1504
+tests/integration/blame_subdirectory.rs
+  h_1ef6ba91475e47 1-395
+tests/integration/checkout_switch.rs
+  h_1ef6ba91475e47 1-496
+tests/integration/checkpoint_debug_log.rs
+  h_1ef6ba91475e47 1-94
+tests/integration/checkpoint_explicit_paths.rs
+  h_1ef6ba91475e47 1-127
+tests/integration/checkpoint_perf.rs
+  h_1ef6ba91475e47 1-182
+tests/integration/checkpoint_size.rs
+  h_1ef6ba91475e47 1-273
+tests/integration/checkpoint_telemetry.rs
+  h_1ef6ba91475e47 1-332
+tests/integration/checkpoint_unit.rs
+  h_1ef6ba91475e47 1-1451
+tests/integration/cherry_pick.rs
+  h_1ef6ba91475e47 1-1244
+tests/integration/chinese_text_edits.rs
+  h_1ef6ba91475e47 1-163
+tests/integration/ci_context_unit.rs
+  h_1ef6ba91475e47 1-178
+tests/integration/ci_fork_notes.rs
+  h_1ef6ba91475e47 1-922
+tests/integration/ci_handlers_comprehensive.rs
+  h_1ef6ba91475e47 1-606
+tests/integration/ci_local_skip_fetch.rs
+  h_1ef6ba91475e47 1-208
+tests/integration/ci_local_skip_push.rs
+  h_1ef6ba91475e47 1-82
+tests/integration/ci_partial_clone.rs
+  h_1ef6ba91475e47 1-331
+tests/integration/ci_squash_rebase.rs
+  h_1ef6ba91475e47 1-1767
+tests/integration/claude_code.rs
+  h_1ef6ba91475e47 1-392
+tests/integration/cli_parser_rebase_args.rs
+  h_1ef6ba91475e47 1-86
+tests/integration/codex.rs
+  h_1ef6ba91475e47 1-1459
+tests/integration/cold_trace2_repo.rs
+  h_1ef6ba91475e47 1-715
+tests/integration/commit_metric_metadata.rs
+  h_1ef6ba91475e47 1-146
+tests/integration/commit_post_stats_benchmark.rs
+  h_1ef6ba91475e47 1-539
+tests/integration/config_cli_coverage.rs
+  h_1ef6ba91475e47 1-399
+tests/integration/config_pattern_detection.rs
+  h_1ef6ba91475e47 1-343
+tests/integration/continue_cli.rs
+  h_1ef6ba91475e47 1-502
+tests/integration/cross_repo_cwd_attribution.rs
+  h_1ef6ba91475e47 1-1432
+tests/integration/cursor.rs
+  h_1ef6ba91475e47 1-580
+tests/integration/daemon_commit_carryover.rs
+  h_1ef6ba91475e47 1-162
+tests/integration/diff.rs
+  h_1ef6ba91475e47 1-3835
+tests/integration/diff_comprehensive.rs
+  h_1ef6ba91475e47 1-629
+tests/integration/diff_ignore_binary.rs
+  h_1ef6ba91475e47 1-601
+tests/integration/droid.rs
+  h_1ef6ba91475e47 1-338
+tests/integration/e2big_post_filter.rs
+  h_1ef6ba91475e47 1-567
+tests/integration/e2e_user_scenarios.rs
+  h_1ef6ba91475e47 1-1298
+tests/integration/event_timestamp_extraction.rs
+  h_1ef6ba91475e47 1-232
+tests/integration/fast_reader.rs
+  h_1ef6ba91475e47 1-267
+tests/integration/fetch_notes.rs
+  h_1ef6ba91475e47 1-242
+tests/integration/firebender.rs
+  h_1ef6ba91475e47 1-307
+tests/integration/formatting_non_substantial_ai_attribution.rs
+  h_1ef6ba91475e47 1-455
+tests/integration/fuzzer/engine.rs
+  h_1ef6ba91475e47 1-227
+tests/integration/fuzzer/helpers.rs
+  h_1ef6ba91475e47 1-264
+tests/integration/fuzzer/mod.rs
+  h_1ef6ba91475e47 1-95
+tests/integration/fuzzer/model.rs
+  h_1ef6ba91475e47 1-374
+tests/integration/fuzzer/operations.rs
+  h_1ef6ba91475e47 1-475
+tests/integration/gemini.rs
+  h_1ef6ba91475e47 1-607
+tests/integration/git_alias_resolution.rs
+  h_1ef6ba91475e47 1-279
+tests/integration/git_cli_arg_parsing.rs
+  h_1ef6ba91475e47 1-967
+tests/integration/git_repository_comprehensive.rs
+  h_1ef6ba91475e47 1-1543
+tests/integration/github/basic_pr_test.rs
+  h_1ef6ba91475e47 1-86
+tests/integration/github/deleted_branch_pr_test.rs
+  h_1ef6ba91475e47 1-124
+tests/integration/github/github_test_harness.rs
+  h_1ef6ba91475e47 1-473
+tests/integration/github/mod.rs
+  h_1ef6ba91475e47 1-3
+tests/integration/github/scripts/cleanup-test-repos.sh
+  h_1ef6ba91475e47 1-88
+tests/integration/github/scripts/run-github-tests.sh
+  h_1ef6ba91475e47 1-50
+tests/integration/github_copilot.rs
+  h_1ef6ba91475e47 1-768
+tests/integration/github_copilot_create_file.rs
+  h_1ef6ba91475e47 1-422
+tests/integration/github_copilot_integration.rs
+  h_1ef6ba91475e47 1-285
+tests/integration/github_copilot_tools.rs
+  h_1ef6ba91475e47 1-706
+tests/integration/github_integration.rs
+  h_1ef6ba91475e47 1-2
+tests/integration/gix_config_tests.rs
+  h_1ef6ba91475e47 1-316
+tests/integration/graphite.rs
+  h_1ef6ba91475e47 1-1298
+tests/integration/ignore_prompts.rs
+  h_1ef6ba91475e47 1-270
+tests/integration/ignore_unit.rs
+  h_1ef6ba91475e47 1-370
+tests/integration/initial_attributions.rs
+  h_1ef6ba91475e47 1-485
+tests/integration/install_hooks_comprehensive.rs
+  h_1ef6ba91475e47 1-770
+tests/integration/internal_machine_commands.rs
+  h_1ef6ba91475e47 1-466
+tests/integration/internal_spawn_safety.rs
+  h_1ef6ba91475e47 1-221
+tests/integration/issue_1204_multi_agent.rs
+  h_1ef6ba91475e47 1-615
+tests/integration/jetbrains_download.rs
+  h_1ef6ba91475e47 1-390
+tests/integration/jetbrains_ide_types.rs
+  h_1ef6ba91475e47 1-454
+tests/integration/log.rs
+  h_1ef6ba91475e47 1-198
+tests/integration/main.rs
+  h_1ef6ba91475e47 1-144
+tests/integration/merge_rebase.rs
+  h_1ef6ba91475e47 1-342
+tests/integration/metrics_retry_idle.rs
+  h_1ef6ba91475e47 1-143
+tests/integration/multi_repo_workspace.rs
+  h_1ef6ba91475e47 1-1041
+tests/integration/non_utf8_files.rs
+  h_1ef6ba91475e47 1-954
+tests/integration/notes_merge_mixed_fanout.rs
+  h_1ef6ba91475e47 1-300
+tests/integration/opencode.rs
+  h_1ef6ba91475e47 1-641
+tests/integration/pending_ai_edit_suppression.rs
+  h_1ef6ba91475e47 1-316
+tests/integration/performance.rs
+  h_1ef6ba91475e47 1-925
+tests/integration/performance_targets.rs
+  h_1ef6ba91475e47 1-99
+tests/integration/pi.rs
+  h_1ef6ba91475e47 1-238
+tests/integration/post_commit_unit.rs
+  h_1ef6ba91475e47 1-122
+tests/integration/pre_commit_unit.rs
+  h_1ef6ba91475e47 1-161
+tests/integration/prompt_across_commit.rs
+  h_1ef6ba91475e47 1-124
+tests/integration/prompt_hash_migration.rs
+  h_1ef6ba91475e47 1-360
+tests/integration/prompt_utils_unit.rs
+  h_1ef6ba91475e47 1-294
+tests/integration/pull_rebase_ff.rs
+  h_1ef6ba91475e47 1-2000
+tests/integration/push_upstream_authorship.rs
+  h_1ef6ba91475e47 1-63
+tests/integration/range_authorship_unit.rs
+  h_1ef6ba91475e47 1-1035
+tests/integration/realistic_complex_edits.rs
+  h_1ef6ba91475e47 1-1650
+tests/integration/rebase.rs
+  h_1ef6ba91475e47 1-2860
+tests/integration/rebase_attribution_remaining.rs
+  h_1ef6ba91475e47 1-218
+tests/integration/rebase_benchmark.rs
+  h_1ef6ba91475e47 1-2803
+tests/integration/rebase_merge_commit_note_leak.rs
+  h_1ef6ba91475e47 1-185
+tests/integration/rebase_note_integrity.rs
+  h_1ef6ba91475e47 1-1358
+tests/integration/rebase_realworld.rs
+  h_1ef6ba91475e47 1-13720
+tests/integration/refs_unit.rs
+  h_1ef6ba91475e47 1-659
+tests/integration/repo_storage_unit.rs
+  h_1ef6ba91475e47 1-668
+tests/integration/repos/mod.rs
+  h_1ef6ba91475e47 1-374
+tests/integration/repos/snapshots/integration__blame_flags__repos__test_file__assert_blame_snapshot.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/repos/snapshots/integration__cherry_pick__repos__test_file__assert_blame_snapshot.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/repos/snapshots/integration__merge_rebase__repos__test_file__assert_blame_snapshot.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/repos/snapshots/integration__rebase__repos__test_file__assert_blame_snapshot.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/repos/snapshots/integration__reset__repos__test_file__assert_blame_snapshot.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/repos/snapshots/integration__simple_additions__repos__test_file__assert_blame_snapshot.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/repos/test_file.rs
+  h_1ef6ba91475e47 1-859
+tests/integration/repos/test_repo.rs
+  h_1ef6ba91475e47 1-3758
+tests/integration/repository_unit.rs
+  h_1ef6ba91475e47 1-543
+tests/integration/reset.rs
+  h_1ef6ba91475e47 1-865
+tests/integration/rewrite_ops_attribution.rs
+  h_1ef6ba91475e47 1-2463
+tests/integration/secrets_benchmark.rs
+  h_1ef6ba91475e47 1-509
+tests/integration/session_event_attribution.rs
+  h_1ef6ba91475e47 1-922
+tests/integration/session_event_repo_url.rs
+  h_1ef6ba91475e47 1-899
+tests/integration/sessions_backwards_compat.rs
+  h_1ef6ba91475e47 1-479
+tests/integration/sessions_cutover.rs
+  h_1ef6ba91475e47 1-2759
+tests/integration/show_prompt.rs
+  h_1ef6ba91475e47 1-289
+tests/integration/simple_additions.rs
+  h_1ef6ba91475e47 1-2914
+tests/integration/simple_benchmark.rs
+  h_1ef6ba91475e47 1-198
+tests/integration/snapshots/integration__blame_flags__blame_abbrev.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_ai_authorship.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_basic_format.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_blank_boundary.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_date_format.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_incremental_format.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_line_porcelain.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_line_range.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_long_rev.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_multiple_flags.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_porcelain_format.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_raw_timestamp.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_show_email.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_show_name.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_show_number.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_show_root.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_show_stats.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__blame_flags__blame_suppress_author.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__initial_attributions__initial_and_blame_merge.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__initial_attributions__initial_and_blame_merge@worktree.snap
+  h_1ef6ba91475e47 1-6
+tests/integration/snapshots/integration__initial_attributions__initial_attributions_in_subsequent_checkpoint.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__initial_attributions__initial_attributions_in_subsequent_checkpoint@worktree.snap
+  h_1ef6ba91475e47 1-6
+tests/integration/snapshots/integration__initial_attributions__initial_only_no_blame_data.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__initial_attributions__initial_only_no_blame_data@worktree.snap
+  h_1ef6ba91475e47 1-6
+tests/integration/snapshots/integration__initial_attributions__initial_wins_overlaps.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__initial_attributions__initial_wins_overlaps@worktree.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__initial_attributions__partial_file_coverage-2.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__initial_attributions__partial_file_coverage.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__initial_attributions__partial_file_coverage@worktree-2.snap
+  h_1ef6ba91475e47 1-6
+tests/integration/snapshots/integration__initial_attributions__partial_file_coverage@worktree.snap
+  h_1ef6ba91475e47 1-6
+tests/integration/snapshots/integration__merge_rebase__blame_after_complex_merge_scenario.snap
+  h_1ef6ba91475e47 1-44
+tests/integration/snapshots/integration__merge_rebase__blame_after_merge_conflict_resolution.snap
+  h_1ef6ba91475e47 1-17
+tests/integration/snapshots/integration__merge_rebase__blame_after_merge_with_ai_contributions.snap
+  h_1ef6ba91475e47 1-12
+tests/integration/snapshots/integration__merge_rebase__blame_after_rebase_chain.snap
+  h_1ef6ba91475e47 1-41
+tests/integration/snapshots/integration__merge_rebase__blame_after_rebase_with_ai_contributions.snap
+  h_1ef6ba91475e47 1-13
+tests/integration/snapshots/integration__reset__reset_forward_is_noop.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__reset__reset_hard_deletes_working_log.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__reset__reset_merge.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__reset__reset_mixed_ai_human_changes.snap
+  h_1ef6ba91475e47 1-28
+tests/integration/snapshots/integration__reset__reset_mixed_pathspec_multiple_commits.snap
+  h_1ef6ba91475e47 1-24
+tests/integration/snapshots/integration__reset__reset_mixed_pathspec_preserves_ai_authorship.snap
+  h_1ef6ba91475e47 1-24
+tests/integration/snapshots/integration__reset__reset_mixed_reconstructs_working_log.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__reset__reset_multiple_commits.snap
+  h_1ef6ba91475e47 1-42
+tests/integration/snapshots/integration__reset__reset_preserves_uncommitted_changes.snap
+  h_1ef6ba91475e47 1-42
+tests/integration/snapshots/integration__reset__reset_soft_reconstructs_working_log.snap
+  h_1ef6ba91475e47 1-24
+tests/integration/snapshots/integration__reset__reset_to_same_commit_is_noop.snap
+  h_1ef6ba91475e47 1-48
+tests/integration/snapshots/integration__reset__reset_with_deleted_files.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__reset__reset_with_new_files.snap
+  h_1ef6ba91475e47 1-24
+tests/integration/snapshots/integration__reset__reset_with_pathspec.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__simple_additions__ai_adds_lines_and_human_deletes_most_of_them-2.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__simple_additions__ai_adds_lines_and_human_deletes_most_of_them.snap
+  h_1ef6ba91475e47 1-42
+tests/integration/snapshots/integration__simple_additions__ai_adds_lines_with_unstaged_modifications-2.snap
+  h_1ef6ba91475e47 1-12
+tests/integration/snapshots/integration__simple_additions__ai_adds_lines_with_unstaged_modifications.snap
+  h_1ef6ba91475e47 1-43
+tests/integration/snapshots/integration__simple_additions__ai_adds_middle_then_human_deletes_and_replaces.snap
+  h_1ef6ba91475e47 1-11
+tests/integration/snapshots/integration__simple_additions__ai_adds_then_human_deletes_all_ai_lines.snap
+  h_1ef6ba91475e47 1-9
+tests/integration/snapshots/integration__simple_additions__ai_adds_then_human_deletes_all_with_empty_replacement-2.snap
+  h_1ef6ba91475e47 1-7
+tests/integration/snapshots/integration__simple_additions__ai_adds_then_human_deletes_all_with_empty_replacement.snap
+  h_1ef6ba91475e47 1-12
+tests/integration/snapshots/integration__simple_additions__ai_adds_then_human_deletes_and_replaces.snap
+  h_1ef6ba91475e47 1-9
+tests/integration/snapshots/integration__simple_additions__ai_human_interleaved_line_attribution-2.snap
+  h_1ef6ba91475e47 1-11
+tests/integration/snapshots/integration__simple_additions__ai_human_interleaved_line_attribution.snap
+  h_1ef6ba91475e47 1-42
+tests/integration/snapshots/integration__simple_additions__ai_prepending_lines.snap
+  h_1ef6ba91475e47 1-12
+tests/integration/snapshots/integration__simple_additions__complex_mixed_additions_and_deletions.snap
+  h_1ef6ba91475e47 1-47
+tests/integration/snapshots/integration__simple_additions__duplicate_prompt_entries_bug-2.snap
+  h_1ef6ba91475e47 1-14
+tests/integration/snapshots/integration__simple_additions__duplicate_prompt_entries_bug.snap
+  h_1ef6ba91475e47 1-46
+tests/integration/snapshots/integration__simple_additions__human_adds_then_ai_modifies_then_human_deletes.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__simple_additions__human_stages_some_ai_lines-2.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__simple_additions__human_stages_some_ai_lines.snap
+  h_1ef6ba91475e47 1-43
+tests/integration/snapshots/integration__simple_additions__interleaved_staged_unstaged_hunks-2.snap
+  h_1ef6ba91475e47 1-14
+tests/integration/snapshots/integration__simple_additions__interleaved_staged_unstaged_hunks.snap
+  h_1ef6ba91475e47 1-46
+tests/integration/snapshots/integration__simple_additions__multiple_ai_checkpoints_with_human_deletions.snap
+  h_1ef6ba91475e47 1-43
+tests/integration/snapshots/integration__simple_additions__multiple_ai_sessions_with_line_level_staging-2.snap
+  h_1ef6ba91475e47 1-11
+tests/integration/snapshots/integration__simple_additions__multiple_ai_sessions_with_line_level_staging.snap
+  h_1ef6ba91475e47 1-43
+tests/integration/snapshots/integration__simple_additions__multiple_ai_sessions_with_partial_staging-2.snap
+  h_1ef6ba91475e47 1-9
+tests/integration/snapshots/integration__simple_additions__multiple_ai_sessions_with_partial_staging.snap
+  h_1ef6ba91475e47 1-43
+tests/integration/snapshots/integration__simple_additions__multiple_overwrites_at_bottom-2.snap
+  h_1ef6ba91475e47 1-8
+tests/integration/snapshots/integration__simple_additions__multiple_overwrites_at_bottom.snap
+  h_1ef6ba91475e47 1-41
+tests/integration/snapshots/integration__simple_additions__multiple_overwrites_at_top-2.snap
+  h_1ef6ba91475e47 1-8
+tests/integration/snapshots/integration__simple_additions__multiple_overwrites_at_top.snap
+  h_1ef6ba91475e47 1-41
+tests/integration/snapshots/integration__simple_additions__multiple_overwrites_in_middle-2.snap
+  h_1ef6ba91475e47 1-10
+tests/integration/snapshots/integration__simple_additions__multiple_overwrites_in_middle.snap
+  h_1ef6ba91475e47 1-41
+tests/integration/snapshots/integration__simple_additions__new_file_partial_staging_two_commits.snap
+  h_1ef6ba91475e47 1-97
+tests/integration/snapshots/integration__simple_additions__partial_staging_filters_unstaged_lines-2.snap
+  h_1ef6ba91475e47 1-9
+tests/integration/snapshots/integration__simple_additions__partial_staging_filters_unstaged_lines.snap
+  h_1ef6ba91475e47 1-43
+tests/integration/snapshots/integration__simple_additions__simple_additions.snap
+  h_1ef6ba91475e47 1-9
+tests/integration/snapshots/integration__simple_additions__simple_additions_empty_repo.snap
+  h_1ef6ba91475e47 1-9
+tests/integration/snapshots/integration__simple_additions__simple_additions_new_file_not_git_added.snap
+  h_1ef6ba91475e47 1-43
+tests/integration/snapshots/integration__simple_additions__simple_additions_on_top_of_ai_contributions.snap
+  h_1ef6ba91475e47 1-11
+tests/integration/snapshots/integration__simple_additions__simple_additions_with_base_commit.snap
+  h_1ef6ba91475e47 1-42
+tests/integration/snapshots/integration__simple_additions__simple_ai_then_human_deletion.snap
+  h_1ef6ba91475e47 1-12
+tests/integration/snapshots/integration__simple_additions__stage_middle_lines_leave_edges_unstaged-2.snap
+  h_1ef6ba91475e47 1-12
+tests/integration/snapshots/integration__simple_additions__stage_middle_lines_leave_edges_unstaged.snap
+  h_1ef6ba91475e47 1-43
+tests/integration/snapshots/integration__simple_additions__stage_specific_lines_only-2.snap
+  h_1ef6ba91475e47 1-11
+tests/integration/snapshots/integration__simple_additions__stage_specific_lines_only.snap
+  h_1ef6ba91475e47 1-43
+tests/integration/snapshots/integration__simple_additions__unstaged_ai_lines_saved_to_working_log.snap
+  h_1ef6ba91475e47 1-84
+tests/integration/snapshots/integration__simple_additions__unstaged_line_at_top_shifts_coordinates-2.snap
+  h_1ef6ba91475e47 1-37
+tests/integration/snapshots/integration__simple_additions__unstaged_line_at_top_shifts_coordinates.snap
+  h_1ef6ba91475e47 1-43
+tests/integration/snapshots/integration__stats__markdown_stats_all_ai.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__stats__markdown_stats_all_ai@worktree.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__stats__markdown_stats_all_human.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__stats__markdown_stats_all_human@worktree.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__stats__markdown_stats_deletion_only.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__stats__markdown_stats_deletion_only@worktree.snap
+  h_1ef6ba91475e47 1-6
+tests/integration/snapshots/integration__stats__markdown_stats_formatting.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__stats__markdown_stats_formatting@worktree.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__stats__markdown_stats_minimal_human.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__stats__markdown_stats_minimal_human@worktree.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__stats__markdown_stats_mixed.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__stats__markdown_stats_mixed@worktree.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__stats__markdown_stats_no_mixed.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__stats__markdown_stats_no_mixed@worktree.snap
+  h_1ef6ba91475e47 1-5
+tests/integration/snapshots/integration__worktrees__worktree_initial_attributions_snapshot_in_worktree_both_mode.snap
+  h_1ef6ba91475e47 1-6
+tests/integration/snapshots/integration__worktrees__worktree_initial_attributions_snapshot_in_worktree_daemon_mode.snap
+  h_1ef6ba91475e47 1-6
+tests/integration/snapshots/integration__worktrees__worktree_initial_attributions_snapshot_in_worktree_wrapper_daemon_mode.snap
+  h_1ef6ba91475e47 1-6
+tests/integration/snapshots/integration__worktrees__worktree_initial_attributions_snapshot_in_worktree_wrapper_mode.snap
+  h_1ef6ba91475e47 1-6
+tests/integration/snapshots/worktrees__worktree_initial_attributions_snapshot_in_worktree_daemon_mode.snap
+  h_1ef6ba91475e47 1-12
+tests/integration/sqlite_connection_policy.rs
+  h_1ef6ba91475e47 1-59
+tests/integration/squash_merge.rs
+  h_1ef6ba91475e47 1-578
+tests/integration/stale_prompt_carry.rs
+  h_1ef6ba91475e47 1-536
+tests/integration/stash_attribution.rs
+  h_1ef6ba91475e47 1-1692
+tests/integration/stash_hooks_unit.rs
+  h_1ef6ba91475e47 1-204
+tests/integration/stats.rs
+  h_1ef6ba91475e47 1-928
+tests/integration/stats_unit.rs
+  h_1ef6ba91475e47 1-759
+tests/integration/status_ignore.rs
+  h_1ef6ba91475e47 1-385
+tests/integration/status_unit.rs
+  h_1ef6ba91475e47 1-369
+tests/integration/streams_claude_reader.rs
+  h_1ef6ba91475e47 1-251
+tests/integration/streams_e2e.rs
+  h_1ef6ba91475e47 1-788
+tests/integration/subdirs.rs
+  h_1ef6ba91475e47 1-1898
+tests/integration/superuser_guard.rs
+  h_1ef6ba91475e47 1-122
+tests/integration/sweep_e2e.rs
+  h_1ef6ba91475e47 1-547
+tests/integration/test_utils.rs
+  h_1ef6ba91475e47 1-33
+tests/integration/test_utils_unit.rs
+  h_1ef6ba91475e47 1-170
+tests/integration/tls_native_certs.rs
+  h_1ef6ba91475e47 1-43
+tests/integration/utf8_filenames.rs
+  h_1ef6ba91475e47 1-2133
+tests/integration/virtual_attribution_unit.rs
+  h_1ef6ba91475e47 1-63
+tests/integration/windsurf.rs
+  h_1ef6ba91475e47 1-618
+tests/integration/worktrees.rs
+  h_1ef6ba91475e47 1-851
+tests/notes_sync_regression.rs
+  h_1ef6ba91475e47 1-1338
+tests/transcripts/fixtures/claude_simple.jsonl
+  h_1ef6ba91475e47 1-3
+tests/transcripts/fixtures/claude_subagent/sess-parent-abc/subagents/agent-a1b2c3d4e5f6.jsonl
+  h_1ef6ba91475e47 1-3
+tests/transcripts/fixtures/claude_with_ids.jsonl
+  h_1ef6ba91475e47 1-5
+tests/windows_install_script.rs
+  h_1ef6ba91475e47 1-517
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "5cb7586063753c3f1156f08b2b3846973a80cfb1",
+  "prompts": {},
+  "humans": {
+    "h_1ef6ba91475e47": {
+      "author": "unknown <baoyucheng@hisense.ad>"
+    }
+  }
+}
