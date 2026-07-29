@@ -341,7 +341,7 @@ pub fn run(args: &[String]) -> Result<HashMap<String, String>, GitAiError> {
     // Get absolute path to the current binary
     let binary_path = get_current_binary_path()?;
     persist_install_config_with_values(&binary_path, options.dry_run, &install_config)?;
-    let params = HookInstallerParams { binary_path };
+    let params = HookInstallerParams { binary_path: binary_path.clone() };
 
     // Run async operations and convert result.
     let statuses = crate::tokio_runtime::block_on(async_run_install(&params, &options))?;
