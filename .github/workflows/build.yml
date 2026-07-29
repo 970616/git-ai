@@ -1,33 +1,30 @@
-name: Build
-
-on:
-      4 +  push:
-      5 +    branches: [main]
-      6 +  workflow_dispatch:
-
-jobs:
-  linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: echo '' > .cargo/config.toml && cargo build --release
-      - uses: actions/upload-artifact@v4
-        with:
-          name: git-ai-linux-x64
-          path: target/release/git-ai
-
-  windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: |
-          echo "" > .cargo/config.toml
-          cargo build --release
-        shell: bash
-      - uses: actions/upload-artifact@v4
-        with:
-          name: git-ai-windows-x64
-          path: target/release/git-ai.exe
-
+  name: Build
+  on:
+    push:
+      branches:
+        - main
+    workflow_dispatch:
+  jobs:
+    linux:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - uses: dtolnay/rust-toolchain@stable
+        - run: echo '' > .cargo/config.toml && cargo build --release
+        - uses: actions/upload-artifact@v4
+          with:
+            name: git-ai-linux-x64
+            path: target/release/git-ai
+    windows:
+      runs-on: windows-latest
+      steps:
+        - uses: actions/checkout@v4
+        - uses: dtolnay/rust-toolchain@stable
+        - run: |
+            echo "" > .cargo/config.toml
+            cargo build --release
+          shell: bash
+        - uses: actions/upload-artifact@v4
+          with:
+            name: git-ai-windows-x64
+            path: target/release/git-ai.exe
