@@ -1,0 +1,26 @@
+src/commands/install_hooks.rs
+  s_2883bcb893cb89::t_cff84d73750a93 344
+bash.exe.stackdump
+  h_1ef6ba91475e47 1-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "08d834f430339fa4305c3a23c08985319ec57fea",
+  "prompts": {},
+  "humans": {
+    "h_1ef6ba91475e47": {
+      "author": "unknown <baoyucheng@hisense.ad>"
+    }
+  },
+  "sessions": {
+    "s_2883bcb893cb89": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd5caac0-44ba-4fa3-ad70-def475b646e3",
+        "model": "deepseek-v4-pro"
+      },
+      "human_author": "unknown <baoyucheng@hisense.ad>"
+    }
+  }
+}
