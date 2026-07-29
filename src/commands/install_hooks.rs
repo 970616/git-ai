@@ -1055,7 +1055,7 @@ git diff --cached --name-only 2>/dev/null | while IFS= read -r file; do
 done
 "#,
         MARKER,
-        binary_path.display()
+        binary_path.to_string_lossy().replace('\\', "/")
     );
 
     if dry_run {
@@ -1132,7 +1132,7 @@ fn install_git_prepush_hook(binary_path: &Path, dry_run: bool) {
         return;
     }
 
-    let script = PRE_PUSH_HOOK_CONTENT.replace("__GIT_AI_PATH__", &binary_path.to_string_lossy());
+    let script = PRE_PUSH_HOOK_CONTENT.replace("__GIT_AI_PATH__", &binary_path.to_string_lossy().replace('\\', "/"));
 
     if let Err(e) = fs::create_dir_all(&hooks_dir) {
         eprintln!("  ⚠ Failed to create hooks dir: {}", e);
