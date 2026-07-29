@@ -1,0 +1,19 @@
+.github/workflows/build.yml
+  s_2883bcb893cb89::t_fa8c3765443c87 1-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "985401825e647626e62aa10bdb145288fa60b03f",
+  "prompts": {},
+  "sessions": {
+    "s_2883bcb893cb89": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd5caac0-44ba-4fa3-ad70-def475b646e3",
+        "model": "deepseek-v4-pro"
+      },
+      "human_author": "unknown <baoyucheng@hisense.ad>"
+    }
+  }
+}
