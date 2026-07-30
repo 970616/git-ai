@@ -2102,34 +2102,22 @@ fn find_dominant_author_for_line_candidates(
         return (CheckpointKind::Human.to_str(), None);
     }
 
-    let mut last_ai_edit: Option<&Attribution> = None;
-    let mut last_human_edit: Option<&Attribution> = None;
-    for attr in &candidate_attrs {
-        if attr.author_id == CheckpointKind::Human.to_str() || attr.author_id.starts_with("h_") {
-            last_human_edit = Some(attr);
-        } else {
-            last_ai_edit = Some(attr);
-        }
-    }
-
-    // For KnownHuman (non-AI) checkpoints: when both AI and human attributions
-    // overlap on the same line, always pick the human author and record the AI
-    // author as overrode.  This guarantees that inline edits inside AI-written
-    // lines are never lost, regardless of timestamp ordering.
-    if !is_ai_checkpoint
-        && last_human_edit.is_some()
-        && last_ai_edit.is_some()
-    {
-        let h = last_human_edit.unwrap();
-        let ai = last_ai_edit.unwrap();
-        return (h.author_id.clone(), Some(ai.author_id.clone()));
-    }
-
     // Choose the author with the latest timestamp (keep first match on ties).
     let mut latest_author = candidate_attrs[0];
     for attr in candidate_attrs.iter().skip(1) {
         if attr.ts > latest_author.ts {
             latest_author = attr;
+        }
+    }
+
+    let mut last_ai_edit: Option<&Attribution> = None;
+    let mut last_human_edit: Option<&Attribution> = None;
+    for attr in &candidate_attrs {
+        // Both legacy "human" and KnownHuman h_<hash> IDs are human edits.
+        if attr.author_id == CheckpointKind::Human.to_str() || attr.author_id.starts_with("h_") {
+            last_human_edit = Some(attr);
+        } else {
+            last_ai_edit = Some(attr);
         }
     }
     let overrode = match (last_ai_edit, last_human_edit) {

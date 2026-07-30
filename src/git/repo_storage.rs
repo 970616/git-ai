@@ -672,7 +672,6 @@ impl PersistedWorkingLog {
         }
 
         output.flush()?;
-        output.get_ref().sync_all()?;
         Ok(())
     }
 
