@@ -1,0 +1,16 @@
+src/authorship/attribution_tracker.rs
+  h_1ef6ba91475e47 2105-2112,2116
+src/daemon.rs
+  h_1ef6ba91475e47 90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "29a19ee47543971694a307e3239d7aecdf1cdd27",
+  "prompts": {},
+  "humans": {
+    "h_1ef6ba91475e47": {
+      "author": "unknown <baoyucheng@hisense.ad>"
+    }
+  }
+}
