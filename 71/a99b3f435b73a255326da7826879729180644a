@@ -1,0 +1,19 @@
+src/daemon.rs
+  s_2883bcb893cb89::t_a7b556e927db53 90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "71a99b3f435b73a255326da7826879729180644a",
+  "prompts": {},
+  "sessions": {
+    "s_2883bcb893cb89": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd5caac0-44ba-4fa3-ad70-def475b646e3",
+        "model": "deepseek-v4-pro"
+      },
+      "human_author": "unknown <baoyucheng@hisense.ad>"
+    }
+  }
+}
