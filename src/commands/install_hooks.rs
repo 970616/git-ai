@@ -346,9 +346,6 @@ pub fn run(args: &[String]) -> Result<HashMap<String, String>, GitAiError> {
     // Run async operations and convert result.
     let statuses = crate::tokio_runtime::block_on(async_run_install(&params, &options))?;
 
-    // Install git pre-commit hook for auto human-edit detection
-    install_git_precommit_hook(&binary_path, options.dry_run);
-
     // Install git pre-push hook for Gerrit notes reporting
     install_git_prepush_hook(&binary_path, options.dry_run);
 
@@ -1004,88 +1001,6 @@ fn cleanup_legacy_envelope_logs() {
 
     // Remove the debounce marker file
     let _ = fs::remove_file(internal.join("last_flush_trigger_ts"));
-}
-
-/// Install a pre-commit git hook that auto-detects manual edits by calling
-/// `git-ai checkpoint mock_known_human` on each staged file before every commit.
-/// This ensures that manual edits made between AI checkpoints are correctly
-/// attributed as human (`h_<hash>`) instead of being swallowed into AI (`s_<session>`).
-fn install_git_precommit_hook(binary_path: &Path, dry_run: bool) {
-    const MARKER: &str = "# git-ai pre-commit";
-
-    let git_dir = match std::process::Command::new("git")
-        .args(["rev-parse", "--git-common-dir"])
-        .output()
-    {
-        Ok(out) if out.status.success() => {
-            PathBuf::from(String::from_utf8_lossy(&out.stdout).trim().to_string())
-        }
-        _ => return, // not in a git repo — nothing to do
-    };
-
-    let hooks_dir = git_dir.join("hooks");
-    let pre_commit_path = hooks_dir.join("pre-commit");
-
-    // If a pre-commit hook already exists and isn't ours, leave it alone.
-    if pre_commit_path.exists() {
-        match fs::read_to_string(&pre_commit_path) {
-            Ok(content) if !content.contains(MARKER) => {
-                eprintln!(
-                    "  ⚠ pre-commit hook already exists (not git-ai), skipping: {}",
-                    pre_commit_path.display()
-                );
-                return;
-            }
-            _ => {}
-        }
-    }
-
-    let script = format!(
-        r#"#!/bin/sh
-# git-ai pre-commit: auto-detect manual edits before commit
-# Installed by `git ai install-hooks` — do not edit manually.
-{}
-GIT_AI="{}"
-ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-
-git diff --cached --name-only 2>/dev/null | while IFS= read -r file; do
-  [ -z "$file" ] && continue
-  [ -f "$ROOT/$file" ] || continue
-  "$GIT_AI" checkpoint mock_known_human "$ROOT/$file" 2>/dev/null
-done
-"#,
-        MARKER,
-        binary_path.to_string_lossy().replace('\\', "/")
-    );
-
-    if dry_run {
-        println!(
-            "  Would install pre-commit hook: {}",
-            pre_commit_path.display()
-        );
-        return;
-    }
-
-    if let Err(e) = fs::create_dir_all(&hooks_dir) {
-        eprintln!("  ⚠ Failed to create hooks dir: {}", e);
-        return;
-    }
-    if let Err(e) = fs::write(&pre_commit_path, &script) {
-        eprintln!("  ⚠ Failed to write pre-commit hook: {}", e);
-        return;
-    }
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Ok(meta) = fs::metadata(&pre_commit_path) {
-            let mut perms = meta.permissions();
-            perms.set_mode(0o755);
-            let _ = fs::set_permissions(&pre_commit_path, perms);
-        }
-    }
-
-    println!("  ✓ pre-commit hook installed: {}", pre_commit_path.display());
 }
 
 /// Install a pre-push git hook that uploads git-ai authorship notes to a
