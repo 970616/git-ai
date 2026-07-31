@@ -1081,7 +1081,6 @@ fn install_git_prepush_hook(binary_path: &Path, dry_run: bool) {
 /// overrides the standard `.git/hooks/pre-commit` path.
 fn install_husky_precommit_hook(dry_run: bool) {
     use std::fs;
-    use std::io::Write;
 
     let git_dir = match std::process::Command::new("git")
         .args(["rev-parse", "--show-toplevel"])

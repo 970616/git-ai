@@ -1180,7 +1180,7 @@ fn handle_hook(args: &[String]) {
     // Build hook_input JSON (same format as CLI `checkpoint mock_known_human <files>`)
     let hook_input = synthesize_hook_input_from_cli_args(
         "mock_known_human",
-        &files.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+        &files.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
     );
 
     // Generate checkpoint requests via the same orchestrator path
@@ -1220,7 +1220,7 @@ fn handle_hook(args: &[String]) {
             request: Box::new(request.clone()),
         };
         match send_control_request(&daemon_config.control_socket_path, &control_request) {
-            Ok(()) => {
+            Ok(_) => {
                 ok += request.files.len() as u32;
             }
             Err(e) => {
