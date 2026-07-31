@@ -1,0 +1,20 @@
+src/commands/git_ai_handlers.rs
+  s_2883bcb893cb89::t_544e4e318ed0de 1183
+  s_2883bcb893cb89::t_a48a87a37c32c4 1223
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "203640d43b9676ba6bfcc5d0a701b2ca5284a422",
+  "prompts": {},
+  "sessions": {
+    "s_2883bcb893cb89": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd5caac0-44ba-4fa3-ad70-def475b646e3",
+        "model": "deepseek-v4-pro"
+      },
+      "human_author": "unknown <baoyucheng@hisense.ad>"
+    }
+  }
+}
