@@ -223,6 +223,22 @@ impl ClaudeCodeInstaller {
             root.insert("hooks".to_string(), hooks_obj);
         }
 
+        // 把当前进程的 GIT_AI_DAEMON_HOME 透传进 Claude 的 env 块。
+        // checkpoint hook 子进程会继承这个 env，从而连上和主二进制同一个 daemon
+        // （比如 tmpfs 上的）。否则 hook 直接调二进制时会用默认 daemon 路径，
+        // 可能和真正在跑的 daemon 不一致（NFS 场景下尤其会出问题）。
+        if let Ok(daemon_home) = std::env::var("GIT_AI_DAEMON_HOME")
+            && !daemon_home.is_empty()
+            && let Some(root) = merged.as_object_mut()
+        {
+            let env = root
+                .entry("env".to_string())
+                .or_insert_with(|| json!({}));
+            if let Some(env_map) = env.as_object_mut() {
+                env_map.insert("GIT_AI_DAEMON_HOME".to_string(), json!(daemon_home));
+            }
+        }
+
         if existing == merged {
             return Ok(None);
         }
