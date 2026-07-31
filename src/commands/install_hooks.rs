@@ -1199,22 +1199,16 @@ fn install_husky_precommit_hook(dry_run: bool) {
         return;
     }
 
-    // Append our hook invocation
-    let mut file = match fs::OpenOptions::new()
-        .append(true)
-        .open(&husky_precommit)
-    {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("  ⚠ Failed to open husky pre-commit: {}", e);
-            return;
-        }
-    };
+    // Append our hook invocation.
+    // The original content may end with a newline; strip it so
+    // we produce a single well-formed shell command line.
+    let trimmed = content.trim_end();
+    let new_content = format!("{} && {}\n", trimmed, marker);
 
-    write!(file, " && {}", marker).unwrap_or_else(|e| {
+    if let Err(e) = fs::write(&husky_precommit, &new_content) {
         eprintln!("  ⚠ Failed to write husky pre-commit: {}", e);
-    });
-    if write!(file, "\n").is_err() {}
+        return;
+    }
 
     println!(
         "  ✓ husky pre-commit updated: {}",
