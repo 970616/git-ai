@@ -857,7 +857,7 @@ fn rfc3339_to_unix_nanos(value: &str) -> Option<u128> {
         .and_then(|timestamp| u128::try_from(timestamp.timestamp_nanos_opt()?).ok())
 }
 
-fn apply_checkpoint_side_effect(mut request: CheckpointRequest) -> Result<(), GitAiError> {
+pub fn apply_checkpoint_side_effect(mut request: CheckpointRequest) -> Result<(), GitAiError> {
     if request.files.is_empty() {
         return Ok(());
     }

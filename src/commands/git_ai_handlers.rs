@@ -1114,8 +1114,6 @@ fn handle_hook(args: &[String]) {
     }
 
     // --- pre-commit hook logic ---
-    use crate::daemon::send_control_request;
-    use crate::daemon::control_api::ControlRequest;
     use crate::commands::checkpoint_agent::orchestrator::execute_preset_checkpoint;
     use std::process::Command;
 
@@ -1197,34 +1195,24 @@ fn handle_hook(args: &[String]) {
         return;
     }
 
-    // Ensure daemon is running before sending
-    eprintln!("[git-ai] pre-commit: ensuring daemon is running...");
-    let daemon_config = match crate::commands::daemon::ensure_daemon_running(
-        std::time::Duration::from_secs(10),
-    ) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("[git-ai] pre-commit: daemon unavailable: {}", e);
-            return;
-        }
-    };
-
-    // Send each request directly via the control socket (no subprocess)
+    // Execute each checkpoint IN-PROCESS via apply_checkpoint_side_effect.
+    // 这会直接 discover repo + resolve + 写 working_log，不经 daemon socket，
+    // 从而避开 commit 期间 trace2 洪流淹没 control socket 导致的超时问题。
+    // daemon 的 post_commit 后续会读到这条 KnownHuman（配合归属引擎正确归人）。
     let mut ok = 0u32;
     let mut fail = 0u32;
-    for request in &requests {
+    for request in requests {
         for file in &request.files {
             eprintln!("[git-ai] checkpoint: {}", file.path.display());
         }
-        let control_request = ControlRequest::CheckpointRun {
-            request: Box::new(request.clone()),
-        };
-        match send_control_request(&daemon_config.control_socket_path, &control_request) {
+        let file_count = request.files.len() as u32;
+        match crate::daemon::apply_checkpoint_side_effect(request) {
             Ok(_) => {
-                ok += request.files.len() as u32;
+                ok += file_count;
+                eprintln!("[git-ai]   -> OK");
             }
             Err(e) => {
-                fail += request.files.len() as u32;
+                fail += file_count;
                 eprintln!("[git-ai]   -> FAIL: {}", e);
             }
         }
