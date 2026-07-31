@@ -1428,8 +1428,27 @@ TOTAL_ELAPSED=$(( $(date +%s) - HOOK_START_TS ))
 
 log_info "------------------------------------------"
 log_ok "checkpoints: $OK ok, $FAIL fail  (checkpoint phase: ${CHECKPOINT_ELAPSED}s, total: ${TOTAL_ELAPSED}s)"
+
+# ── re-trigger daemon to regenerate notes ─────────────────
+# Checkpoints were created AFTER the commit, so any git notes
+# already generated for this commit are incomplete (no
+# KnownHuman data).  Delete them and poke the daemon to
+# re-process this commit with the full dataset.
 if [ $OK -gt 0 ]; then
-  log_info "  ── 查看行级归属: sleep 5 && git ai show HEAD"
+  log_info "re-triggering daemon for commit $COMMIT_SHA ..."
+  RERUN_T0=$(date +%s)
+
+  # Remove potentially-stale notes so daemon starts fresh
+  git notes --ref=ai remove "$COMMIT_SHA" 2>/dev/null
+  log_dbg "stale notes cleared for $COMMIT_SHA"
+
+  # Touch daemon so it picks up the new checkpoints
+  git ai status >/dev/null 2>&1
+  RERUN_T1=$(date +%s)
+  RERUN_ELAPSED=$((RERUN_T1 - RERUN_T0))
+  log_dbg "daemon re-trigger done (${RERUN_ELAPSED}s)"
+
+  log_info "  ── 几秒后查看归属: sleep 5 && git ai show HEAD"
 fi
 log_info "=========================================="
 
