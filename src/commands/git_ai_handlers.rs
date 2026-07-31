@@ -1154,6 +1154,11 @@ fn handle_hook(args: &[String]) {
         })
         .unwrap_or_else(|| "src/".to_string());
 
+    // Ensure daemon is running before we try to send checkpoints.
+    // On Linux this connects via Unix socket; on Windows via named pipe.
+    eprintln!("[git-ai] pre-commit: ensuring daemon is running...");
+    let _ = crate::commands::daemon::ensure_daemon_running(std::time::Duration::from_secs(10));
+
     eprintln!("[git-ai] pre-commit: scanning staged files (include={})", include_path);
 
     let mut ok = 0u32;
