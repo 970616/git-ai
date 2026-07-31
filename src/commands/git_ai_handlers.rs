@@ -179,6 +179,9 @@ pub fn handle_git_ai(args: &[String]) {
                 std::process::exit(1);
             }
         },
+        "hook" => {
+            handle_hook(&args[1..]);
+        }
         "git-hooks" => {
             handle_git_hooks(&args[1..]);
         }
@@ -366,6 +369,8 @@ fn print_help() {
     eprintln!("    unset <key>           Remove config value (reverts to default)");
     eprintln!("  debug              Print support/debug diagnostics");
     eprintln!("  bg                 Run and control git-ai background service");
+    eprintln!("  hook <type>        Run a git-ai managed hook (used by .husky/ or .git/hooks/)");
+    eprintln!("    pre-commit           Checkpoint all staged files as KnownHuman");
     eprintln!("  install-hooks      Install git hooks for AI authorship tracking");
     eprintln!("    --skills               Also install agent skill files");
     eprintln!("    --visual-studio-extension");
@@ -1088,6 +1093,116 @@ fn normalize_head_rev(rev: &str) -> String {
         }
     }
     rev.to_string()
+}
+
+/// Handle `git ai hook <type>` subcommand.
+/// Currently supports `pre-commit`: runs mock_known_human checkpoint for
+/// all staged files under a configurable include path (default: src/).
+fn handle_hook(args: &[String]) {
+    let hook_type = match args.first().map(String::as_str) {
+        Some(t) => t,
+        None => {
+            eprintln!("Usage: git ai hook <pre-commit>");
+            return;
+        }
+    };
+
+    if hook_type != "pre-commit" {
+        eprintln!("Unknown hook type: {}", hook_type);
+        eprintln!("Usage: git ai hook <pre-commit>");
+        return;
+    }
+
+    // --- pre-commit hook logic ---
+    use std::process::Command;
+
+    let root = match Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+    {
+        Ok(o) if o.status.success() => {
+            String::from_utf8_lossy(&o.stdout).trim().to_string()
+        }
+        _ => return,
+    };
+
+    let changed = match Command::new("git")
+        .args(["diff", "--cached", "--name-only", "--diff-filter=AM"])
+        .output()
+    {
+        Ok(o) if o.status.success() => {
+            String::from_utf8_lossy(&o.stdout).trim().to_string()
+        }
+        _ => return,
+    };
+
+    if changed.is_empty() {
+        return;
+    }
+
+    let include_path = std::env::var("GITAI_CHECKPOINT_INCLUDE")
+        .ok()
+        .or_else(|| {
+            Command::new("git")
+                .args(["config", "--get", "gitai.checkpoint.include"])
+                .output()
+                .ok()
+                .and_then(|o| {
+                    let val = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                    if val.is_empty() { None } else { Some(val) }
+                })
+        })
+        .unwrap_or_else(|| "src/".to_string());
+
+    eprintln!("[git-ai] pre-commit: scanning staged files (include={})", include_path);
+
+    let mut ok = 0u32;
+    let mut fail = 0u32;
+    let mut skipped = 0u32;
+
+    for f in changed.lines() {
+        let f = f.trim();
+        if f.is_empty() {
+            continue;
+        }
+        if !f.starts_with(&include_path) {
+            skipped += 1;
+            continue;
+        }
+
+        let abs_path = std::path::Path::new(&root).join(f);
+        if !abs_path.exists() {
+            skipped += 1;
+            continue;
+        }
+
+        eprintln!("[git-ai] checkpoint: {}", f);
+        // Directly call the checkpoint logic
+        let status = Command::new(std::env::current_exe().unwrap_or_else(|_| {
+            std::path::PathBuf::from("git-ai")
+        }))
+        .args([
+            "checkpoint",
+            "mock_known_human",
+            &abs_path.to_string_lossy(),
+        ])
+        .status();
+
+        match status {
+            Ok(s) if s.success() => {
+                ok += 1;
+            }
+            _ => {
+                fail += 1;
+                eprintln!("[git-ai]   -> FAIL ({})", f);
+            }
+        }
+    }
+
+    eprintln!(
+        "[git-ai] pre-commit done: {} ok, {} fail, {} skipped",
+        ok, fail, skipped
+    );
 }
 
 fn handle_git_hooks(args: &[String]) {

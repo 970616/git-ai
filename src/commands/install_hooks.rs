@@ -347,6 +347,9 @@ pub fn run(args: &[String]) -> Result<HashMap<String, String>, GitAiError> {
     // Install git post-commit hook for automatic KnownHuman checkpoint
     install_git_postcommit_hook(&binary_path, options.dry_run);
 
+    // Install husky-compatible pre-commit hook
+    install_husky_precommit_hook(options.dry_run);
+
     let params = HookInstallerParams { binary_path };
 
     // Run async operations and convert result.
@@ -1140,6 +1143,82 @@ fn install_git_postcommit_hook(_binary_path: &Path, dry_run: bool) {
     println!(
         "  ✓ post-commit hook installed: {}",
         post_commit_path.display()
+    );
+}
+
+/// Install or update the husky pre-commit hook entry.
+///
+/// If `.husky/pre-commit` exists, append (or update) the `git-ai hook pre-commit`
+/// invocation.  This is the preferred pre-commit integration because husky
+/// overrides the standard `.git/hooks/pre-commit` path.
+fn install_husky_precommit_hook(dry_run: bool) {
+    use std::fs;
+    use std::io::Write;
+
+    let git_dir = match std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+    {
+        Ok(out) if out.status.success() => PathBuf::from(
+            String::from_utf8_lossy(&out.stdout).trim(),
+        ),
+        _ => return,
+    };
+
+    let husky_precommit = git_dir.join(".husky").join("pre-commit");
+    if !husky_precommit.exists() {
+        // No husky — the standard .git/hooks/pre-commit path applies.
+        return;
+    }
+
+    if dry_run {
+        println!(
+            "  Would update husky pre-commit: {}",
+            husky_precommit.display()
+        );
+        return;
+    }
+
+    let marker = "git-ai hook pre-commit";
+
+    // Read existing content
+    let content = match fs::read_to_string(&husky_precommit) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("  ⚠ Failed to read husky pre-commit: {}", e);
+            return;
+        }
+    };
+
+    // Already contains our hook — skip
+    if content.contains(marker) {
+        println!(
+            "  ✓ husky pre-commit already configured: {}",
+            husky_precommit.display()
+        );
+        return;
+    }
+
+    // Append our hook invocation
+    let mut file = match fs::OpenOptions::new()
+        .append(true)
+        .open(&husky_precommit)
+    {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("  ⚠ Failed to open husky pre-commit: {}", e);
+            return;
+        }
+    };
+
+    write!(file, " && {}", marker).unwrap_or_else(|e| {
+        eprintln!("  ⚠ Failed to write husky pre-commit: {}", e);
+    });
+    if write!(file, "\n").is_err() {}
+
+    println!(
+        "  ✓ husky pre-commit updated: {}",
+        husky_precommit.display()
     );
 }
 
