@@ -1,0 +1,38 @@
+src/commands/git_ai_handlers.rs
+  s_2883bcb893cb89::t_b6fe0134e8a36d 555-557
+src/git/repo_storage.rs
+  s_2883bcb893cb89::t_6ca4c9af54b454 675
+src/authorship/attribution_tracker.rs
+  s_2883bcb893cb89::t_24e7e84449f4fa 2114-2119
+  h_1ef6ba91475e47 2120-2121
+src/commands/install_hooks.rs
+  s_2883bcb893cb89::t_a152c4c4f99c8e 1431-1433
+  s_2883bcb893cb89::t_c39dc963b53ed5 1259-1264,1267-1271,1273-1274,1276,1278-1280,1286-1287,1291-1292,1315,1321-1322,1324-1325,1327-1330,1332-1334,1344-1345,1348-1350,1358,1360,1362-1363,1365-1367,1369-1371,1382-1383,1386-1388,1390-1391,1394-1396,1399-1401,1412,1415,1417,1420,1422-1425,1429,1434-1438
+  s_2883bcb893cb89::t_03b5460820bcdb 347-349
+  s_2883bcb893cb89::t_3c5b4e09fed5e2 344
+  s_2883bcb893cb89::t_7b4d5776bf2127 1077-1145
+  s_2883bcb893cb89::t_6e5ff2a15c40b3 1265-1266,1272,1275,1277,1281-1285,1288-1290,1293-1314,1316-1320,1323,1326,1331,1335-1343,1346-1347,1351-1357,1359,1361,1364,1368,1372-1381,1384-1385,1389,1392-1393,1397-1398,1402-1411,1413-1414,1416,1418-1419,1421,1426-1428,1430
+  s_2883bcb893cb89::t_f454f1f5d05c9e 1212
+  h_1ef6ba91475e47 345-346,350
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "6af09deac3c490cc8840a085cdad091268200346",
+  "prompts": {},
+  "humans": {
+    "h_1ef6ba91475e47": {
+      "author": "unknown <baoyucheng@hisense.ad>"
+    }
+  },
+  "sessions": {
+    "s_2883bcb893cb89": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd5caac0-44ba-4fa3-ad70-def475b646e3",
+        "model": "deepseek-v4-pro"
+      },
+      "human_author": "unknown <baoyucheng@hisense.ad>"
+    }
+  }
+}
