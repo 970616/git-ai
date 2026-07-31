@@ -552,6 +552,9 @@ fn handle_checkpoint(args: &[String]) {
         );
     }
 
+    // Ensure daemon is running before sending checkpoint (auto-start if needed)
+    let _ = crate::commands::daemon::ensure_daemon_running(std::time::Duration::from_secs(5));
+
     let mut sent_count = 0u64;
     for request in requests {
         let t_send = std::time::Instant::now();
