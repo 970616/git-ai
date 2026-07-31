@@ -1114,6 +1114,9 @@ fn handle_hook(args: &[String]) {
     }
 
     // --- pre-commit hook logic ---
+    use crate::daemon::send_control_request;
+    use crate::daemon::control_api::ControlRequest;
+    use crate::commands::checkpoint_agent::orchestrator::execute_preset_checkpoint;
     use std::process::Command;
 
     let root = match Command::new("git")
@@ -1154,59 +1157,82 @@ fn handle_hook(args: &[String]) {
         })
         .unwrap_or_else(|| "src/".to_string());
 
-    // Ensure daemon is running before we try to send checkpoints.
-    // On Linux this connects via Unix socket; on Windows via named pipe.
-    eprintln!("[git-ai] pre-commit: ensuring daemon is running...");
-    let _ = crate::commands::daemon::ensure_daemon_running(std::time::Duration::from_secs(10));
-
-    eprintln!("[git-ai] pre-commit: scanning staged files (include={})", include_path);
-
-    let mut ok = 0u32;
-    let mut fail = 0u32;
-    let mut skipped = 0u32;
-
+    // Collect filtered file paths
+    let mut files: Vec<String> = Vec::new();
     for f in changed.lines() {
         let f = f.trim();
-        if f.is_empty() {
+        if f.is_empty() || !f.starts_with(&include_path) {
             continue;
         }
-        if !f.starts_with(&include_path) {
-            skipped += 1;
-            continue;
-        }
-
         let abs_path = std::path::Path::new(&root).join(f);
         if !abs_path.exists() {
-            skipped += 1;
             continue;
         }
+        files.push(abs_path.to_string_lossy().to_string());
+    }
 
-        eprintln!("[git-ai] checkpoint: {}", f);
-        // Directly call the checkpoint logic
-        let status = Command::new(std::env::current_exe().unwrap_or_else(|_| {
-            std::path::PathBuf::from("git-ai")
-        }))
-        .args([
-            "checkpoint",
-            "mock_known_human",
-            &abs_path.to_string_lossy(),
-        ])
-        .status();
+    if files.is_empty() {
+        return;
+    }
 
-        match status {
-            Ok(s) if s.success() => {
-                ok += 1;
+    eprintln!("[git-ai] pre-commit: {} file(s) to checkpoint (include={})", files.len(), include_path);
+
+    // Build hook_input JSON (same format as CLI `checkpoint mock_known_human <files>`)
+    let hook_input = synthesize_hook_input_from_cli_args(
+        "mock_known_human",
+        &files.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+    );
+
+    // Generate checkpoint requests via the same orchestrator path
+    let requests = match execute_preset_checkpoint("mock_known_human", &hook_input) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("[git-ai] pre-commit failed: preset error: {}", e);
+            return;
+        }
+    };
+
+    if requests.is_empty() {
+        eprintln!("[git-ai] pre-commit: no checkpoint requests generated, done");
+        return;
+    }
+
+    // Ensure daemon is running before sending
+    eprintln!("[git-ai] pre-commit: ensuring daemon is running...");
+    let daemon_config = match crate::commands::daemon::ensure_daemon_running(
+        std::time::Duration::from_secs(10),
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("[git-ai] pre-commit: daemon unavailable: {}", e);
+            return;
+        }
+    };
+
+    // Send each request directly via the control socket (no subprocess)
+    let mut ok = 0u32;
+    let mut fail = 0u32;
+    for request in &requests {
+        for file in &request.files {
+            eprintln!("[git-ai] checkpoint: {}", file.path.display());
+        }
+        let control_request = ControlRequest::CheckpointRun {
+            request: Box::new(request.clone()),
+        };
+        match send_control_request(&daemon_config.control_socket_path, &control_request) {
+            Ok(()) => {
+                ok += request.files.len() as u32;
             }
-            _ => {
-                fail += 1;
-                eprintln!("[git-ai]   -> FAIL ({})", f);
+            Err(e) => {
+                fail += request.files.len() as u32;
+                eprintln!("[git-ai]   -> FAIL: {}", e);
             }
         }
     }
 
     eprintln!(
-        "[git-ai] pre-commit done: {} ok, {} fail, {} skipped",
-        ok, fail, skipped
+        "[git-ai] pre-commit done: {} ok, {} fail",
+        ok, fail
     );
 }
 
