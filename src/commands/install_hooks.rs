@@ -1130,7 +1130,14 @@ fn install_husky_precommit_hook(dry_run: bool) {
     // The original content may end with a newline; strip it so
     // we produce a single well-formed shell command line.
     let trimmed = content.trim_end();
-    let new_content = format!("{} && {}\n", trimmed, marker);
+    // 把 git-ai hook 放在最前面：必须在 lint-staged / prettier / eslint --fix 之前跑，
+    // 否则这些工具会格式化 AI 写的代码，让 git-ai 误判成"人改的"（行内容变了→归人）。
+    // hook 先跑时，它对比的是 AI 原版 checkpoint，只有人真实手改的行才会被标成人。
+    let new_content = if trimmed.is_empty() {
+        format!("{}\n", marker)
+    } else {
+        format!("{} && {}\n", marker, trimmed)
+    };
 
     if let Err(e) = fs::write(&husky_precommit, &new_content) {
         eprintln!("  ⚠ Failed to write husky pre-commit: {}", e);
