@@ -446,6 +446,31 @@ impl AttributionTracker {
             return Ok(());
         }
 
+        // For non-AI checkpoints (e.g. KnownHuman), attribute the entire changed
+        // new-line span of a substantive hunk to the new author — mirroring how AI
+        // checkpoints force_split hunks above. Without this, a small in-line human
+        // edit to an AI-written line went through token-aligned diff and only the
+        // changed bytes were re-attributed, leaving the line's attribution dominated
+        // by the prior AI author (so "human tweaks an AI line" still showed as AI).
+        // Whitespace-only changes fall through to the diff below so format-on-save
+        // does not flip attribution, and pure deletions (empty new range) are skipped.
+        if new_start < new_end
+            && !data_is_whitespace(&new_content.as_bytes()[new_start..new_end])
+        {
+            append_range_diffs(
+                &mut computation.diffs,
+                old_content,
+                new_content,
+                (old_start, old_end),
+                (new_start, new_end),
+                true,
+            );
+            computation
+                .substantive_new_ranges
+                .push((new_start, new_end));
+            return Ok(());
+        }
+
         if should_use_line_aligned_hunk_diff(
             ops,
             old_end_line.saturating_sub(old_start_line),

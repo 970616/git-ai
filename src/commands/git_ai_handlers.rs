@@ -1114,7 +1114,7 @@ fn handle_hook(args: &[String]) {
     }
 
     // --- pre-commit hook logic ---
-    use crate::daemon::{send_control_request, send_control_request_with_timeout};
+    use crate::daemon::send_control_request;
     use crate::daemon::control_api::ControlRequest;
     use crate::commands::checkpoint_agent::orchestrator::execute_preset_checkpoint;
     use std::process::Command;
@@ -1219,29 +1219,13 @@ fn handle_hook(args: &[String]) {
         let control_request = ControlRequest::CheckpointRun {
             request: Box::new(request.clone()),
         };
-        // 10s 超时：commit 期间 husky/lint-staged 喷 trace2 事件会把 daemon 占满，
-        // control socket 上的 CheckpointRun 默认 2s 不够（实测 daemon 在 commit 后
-        // 1~1.5s 排空），给到 10s 余量。仅作用于 pre-commit hook。
-        let t_send = std::time::Instant::now();
-        match send_control_request_with_timeout(
-            &daemon_config.control_socket_path,
-            &control_request,
-            std::time::Duration::from_secs(10),
-        ) {
+        match send_control_request(&daemon_config.control_socket_path, &control_request) {
             Ok(_) => {
                 ok += request.files.len() as u32;
-                eprintln!(
-                    "[git-ai]   -> OK ({:.2}s)",
-                    t_send.elapsed().as_secs_f64()
-                );
             }
             Err(e) => {
                 fail += request.files.len() as u32;
-                eprintln!(
-                    "[git-ai]   -> FAIL ({:.2}s): {}",
-                    t_send.elapsed().as_secs_f64(),
-                    e
-                );
+                eprintln!("[git-ai]   -> FAIL: {}", e);
             }
         }
     }
