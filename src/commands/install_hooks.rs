@@ -1072,6 +1072,52 @@ fn install_git_prepush_hook(binary_path: &Path, dry_run: bool) {
     }
 
     println!("  ✓ pre-push hook installed: {}", pre_push_path.display());
+
+    // ===== husky 项目额外装 .husky/pre-push 转发器 =====
+    // husky 接管 core.hooksPath 后，git 找 hook 去 .husky/_/，不会跑 .git/hooks/pre-push，
+    // 导致 pre-push 上报在 husky 项目不触发。这里在 .husky/pre-push 放个转发器，
+    // 让 husky 的 dispatcher 执行它时转去跑真正的 pre-push 脚本（stdin 自动透传）。
+    let git_dir_top = match std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+    {
+        Ok(out) if out.status.success() => PathBuf::from(
+            String::from_utf8_lossy(&out.stdout).trim(),
+        ),
+        _ => return,
+    };
+    if is_husky_active(&git_dir_top) {
+        let husky_prepush = git_dir_top.join(".husky").join("pre-push");
+        // 已存在且不是 git-ai 转发器 → 跳过（保护用户自己的 pre-push）
+        if husky_prepush.exists()
+            && let Ok(content) = fs::read_to_string(&husky_prepush)
+            && !content.contains("git-ai pre-push (husky forwarder)")
+        {
+            eprintln!(
+                "  ⚠ .husky/pre-push already exists (not git-ai), skipping: {}",
+                husky_prepush.display()
+            );
+            return;
+        }
+        let forwarder = "#!/usr/bin/env sh\n# git-ai pre-push (husky forwarder)\n# Installed by `git ai install-hooks` — do not edit manually.\n# husky 接管 core.hooksPath 后，git 不跑 .git/hooks/pre-push，\n# 用这个转发器让 pre-push 在 husky 项目也能触发（stdin 自动透传）。\nexec \"$(git rev-parse --git-common-dir)/hooks/pre-push\" \"$@\"\n";
+        if let Err(e) = fs::write(&husky_prepush, forwarder) {
+            eprintln!("  ⚠ Failed to write .husky/pre-push forwarder: {}", e);
+            return;
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(meta) = fs::metadata(&husky_prepush) {
+                let mut perms = meta.permissions();
+                perms.set_mode(0o755);
+                let _ = fs::set_permissions(&husky_prepush, perms);
+            }
+        }
+        println!(
+            "  ✓ husky pre-push forwarder installed: {}",
+            husky_prepush.display()
+        );
+    }
 }
 
 /// 检测项目是否启用了 husky（v9+）。
