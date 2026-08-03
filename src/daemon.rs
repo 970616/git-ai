@@ -931,6 +931,26 @@ fn resolve_checkpoint_request(
     let config = config::Config::fresh();
     let mut content_budget = CheckpointContentBudget::from_config(&config);
 
+    // 只跟踪 include_path 下的文件（默认 src/），src 外的文件不记归属。
+    // 这样 Claude hook（AI 捕获）、pre-commit hook（人捕获）、daemon post_commit 兜底
+    // 全部只处理 src/ 下的文件。读取来源：GITAI_CHECKPOINT_INCLUDE 环境变量
+    // > git config gitai.checkpoint.include > 默认 "src/"。
+    let include_path = std::env::var("GITAI_CHECKPOINT_INCLUDE")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .or_else(|| {
+            let mut cmd = std::process::Command::new(config.git_cmd());
+            cmd.args(["config", "--get", "gitai.checkpoint.include"])
+                .stdout(std::process::Stdio::piped)
+                .stderr(std::process::Stdio::null());
+            crate::git::repository::apply_internal_git_env(&mut cmd);
+            cmd.output().ok().and_then(|o| {
+                let val = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                if val.is_empty() { None } else { Some(val) }
+            })
+        })
+        .unwrap_or_else(|| "src/".to_string());
+
     for file in &mut request.files {
         let path_str = file.path.to_string_lossy();
         let path_str = path_str.trim();
@@ -963,6 +983,11 @@ fn resolve_checkpoint_request(
             continue;
         }
         if should_ignore_file_with_matcher(&relative_path, &ignore_matcher) {
+            continue;
+        }
+
+        // 只跟踪 include_path（默认 src/）下的文件，src 外的跳过（不记归属）
+        if !relative_path.starts_with(&include_path) {
             continue;
         }
 
