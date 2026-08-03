@@ -197,6 +197,21 @@ fn execute_resolved_checkpoint(
         ));
     }
 
+    // ===== include_path 过滤（catch-all，覆盖 daemon post_commit 兜底等绕过
+    // resolve_checkpoint_request 的路径）=====
+    // 只保留 include_path（默认 src/）下的文件，src 外的彻底不记归属。
+    {
+        let include_path = std::env::var("GITAI_CHECKPOINT_INCLUDE")
+            .ok()
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| "src/".to_string());
+        resolved.files.retain(|f| f.starts_with(&include_path));
+        resolved.dirty_files.retain(|f, _| f.starts_with(&include_path));
+        if resolved.files.is_empty() {
+            return Ok((0, 0, 0));
+        }
+    }
+
     let mut working_log = repo
         .storage
         .working_log_for_base_commit(&resolved.base_commit)?;
