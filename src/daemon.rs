@@ -941,7 +941,7 @@ fn resolve_checkpoint_request(
         .or_else(|| {
             let mut cmd = std::process::Command::new(config.git_cmd());
             cmd.args(["config", "--get", "gitai.checkpoint.include"])
-                .stdout(std::process::Stdio::piped)
+                .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::null());
             crate::git::repository::apply_internal_git_env(&mut cmd);
             cmd.output().ok().and_then(|o| {
