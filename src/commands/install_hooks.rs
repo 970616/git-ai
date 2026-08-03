@@ -1194,10 +1194,11 @@ fn install_precommit_hook(binary_path: &Path, dry_run: bool) {
         // 前置 git-ai hook：必须在 lint-staged / prettier / eslint --fix 之前跑，
         // 否则这些工具会格式化 AI 写的代码，让 git-ai 误判成"人改的"（行内容变了→归人）。
         let trimmed = content.trim_end();
+        // 用 `|| true;` 而非 `&&`：git-ai hook 崩溃/失败也不阻断后续 lint/type-check 和 commit。
         let new_content = if trimmed.is_empty() {
-            format!("{}\n", marker)
+            format!("{} || true\n", marker)
         } else {
-            format!("{} && {}\n", marker, trimmed)
+            format!("{} || true; {}\n", marker, trimmed)
         };
 
         if let Err(e) = fs::write(&husky_precommit, &new_content) {
@@ -1245,9 +1246,10 @@ fn install_precommit_hook(binary_path: &Path, dry_run: bool) {
 
         // 用二进制绝对路径，不依赖 PATH（git hook 跑时 PATH 可能不全）。
         // handle_hook 是进程内执行（apply_checkpoint_side_effect），不需要 daemon。
+        // 末尾 `|| true`：git-ai hook 崩溃/失败也不阻断 commit。
         let binary_str = binary_path.to_string_lossy().replace('\\', "/");
         let script = format!(
-            "#!/usr/bin/env sh\n# git-ai pre-commit\n# Installed by `git ai install-hooks` — do not edit manually.\n{} hook pre-commit\n",
+            "#!/usr/bin/env sh\n# git-ai pre-commit\n# Installed by `git ai install-hooks` — do not edit manually.\n{} hook pre-commit || true\n",
             binary_str
         );
 
