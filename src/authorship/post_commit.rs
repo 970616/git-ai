@@ -869,6 +869,30 @@ pub(crate) fn post_commit_amend_with_recovery_timestamps_detailed(
             .retain(|a| a.file_path.starts_with(&include_path));
     }
 
+    // 算占比（src/ 内口径）注入 note metadata，供 `git ai show` 直接展示，与正常 commit 路径一致。
+    // amend 路径无 options.compute_stats 开关，这里直接算；失败不阻塞写 note（降级为无占比）。
+    {
+        let stats_diff_base = single_commit_diff_base(&parent_sha, amended_commit);
+        let stats = (|| -> Result<Option<crate::authorship::stats::CommitStats>, GitAiError> {
+            let ignore_patterns = effective_ignore_patterns(repo, &[], &[]);
+            let diff_hunks = crate::commands::diff::get_diff_with_line_numbers(
+                repo,
+                &stats_diff_base,
+                amended_commit,
+            )?;
+            let computed = stats_for_commit_stats_from_hunks(
+                repo,
+                amended_commit,
+                &ignore_patterns,
+                &diff_hunks,
+                Some(&authorship_log),
+            )?;
+            Ok(Some(computed))
+        })()
+        .unwrap_or(None);
+        authorship_log.metadata.stats = stats;
+    }
+
     let authorship_note_str = authorship_log
         .serialize_to_string()
         .map_err(|_| GitAiError::Generic("Failed to serialize authorship log".to_string()))?;
