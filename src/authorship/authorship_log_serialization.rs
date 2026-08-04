@@ -31,6 +31,11 @@ pub struct AuthorshipMetadata {
     pub humans: BTreeMap<String, HumanRecord>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub sessions: BTreeMap<String, SessionRecord>,
+    /// 该 commit 的占比统计（src/ 内的 AI/人工/untracked 行数）。
+    /// post-commit 写 note 时预算好填入，供 `git ai show` 直接展示，免去再跑一次 stats。
+    /// 旧 note 缺该字段时为 None（向后兼容）；被 skip（merge/过大）时也保持 None。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stats: Option<crate::authorship::stats::CommitStats>,
 }
 
 impl AuthorshipMetadata {
@@ -42,6 +47,7 @@ impl AuthorshipMetadata {
             prompts: BTreeMap::new(),
             humans: BTreeMap::new(),
             sessions: BTreeMap::new(),
+            stats: None,
         }
     }
 }

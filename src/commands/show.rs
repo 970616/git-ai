@@ -54,6 +54,17 @@ fn show_authorship(repo: &Repository, spec: &str) -> Result<(), GitAiError> {
                 if multiple_commits {
                     println!("{}", sha);
                 }
+                // 占比在前：note 的 metadata 里预存了 stats 才显示（src/ 内口径）。
+                // 传 false 让 write_stats_to_terminal 只返回 String 不自行 println，
+                // 由这里统一控制"占比 → 空行 → 归因原文"的输出顺序。
+                if let Some(stats) = &authorship_log.metadata.stats {
+                    let bar = crate::authorship::stats::write_stats_to_terminal(stats, false);
+                    print!("{}", bar);
+                    if !bar.ends_with('\n') {
+                        println!();
+                    }
+                    println!();
+                }
                 let serialized = authorship_log.serialize_to_string().map_err(|_| {
                     GitAiError::Generic("Failed to serialize authorship log".to_string())
                 })?;

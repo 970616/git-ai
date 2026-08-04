@@ -429,7 +429,7 @@ where
     // 在写 git note 之前，把 attestations 里非 include_path 的文件全部删掉，
     // 确保 git note 里只有 src/ 下的文件。这是最后一道闸，所有路径都逃不掉。
     {
-        let include_path = std::env::var("GITIA_CHECKPOINT_INCLUDE")
+        let include_path = std::env::var("GITAI_CHECKPOINT_INCLUDE")
             .ok()
             .filter(|v| !v.is_empty())
             .unwrap_or_else(|| "src/".to_string());
@@ -438,16 +438,15 @@ where
             .retain(|a| a.file_path.starts_with(&include_path));
     }
 
-    let authorship_note_str = authorship_log
-        .serialize_to_string()
-        .map_err(|_| GitAiError::Generic("Failed to serialize authorship log".to_string()))?;
-
-    write_note(repo, &commit_sha, &authorship_note_str)?;
-
-    // Compute stats once (needed for both metrics and terminal output), unless preflight
-    // estimate predicts this would be too expensive for the commit hook path.
+    // Compute stats once (needed for note metadata, metrics and terminal output), unless
+    // preflight estimate predicts this would be too expensive for the commit hook path.
+    // 提前到 write_note 之前执行：把占比注入 note metadata，随 note 持久化，供 `git ai show` 直接展示。
     let mut stats: Option<crate::authorship::stats::CommitStats> = None;
     let mut skip_reason = None;
+    // computed 与 hunks_json 在此暂存，待 write_note 之后再用于 record_commit_metrics
+    //（metrics 需要 authorship_note_str，而它要在 stats 注入 metadata 后才能 serialize 出来）。
+    let mut computed_for_metrics: Option<crate::authorship::stats::CommitStats> = None;
+    let mut hunks_json_for_metrics: Option<String> = None;
 
     if options.compute_stats {
         let stats_diff_base = single_commit_diff_base(&parent_sha, &commit_sha);
@@ -494,21 +493,36 @@ where
             .ok()
             .and_then(|artifacts| serde_json::to_string(&artifacts.json_hunks).ok());
 
-            // Record metrics only when we have full stats.
-            record_commit_metrics(
-                repo,
-                &commit_sha,
-                // Store the recorded parent as `base_commit_sha`, not the
-                // `<commit>^` diff rev-expression used for the diff spawns.
-                &parent_sha,
-                &human_author,
-                &authorship_note_str,
-                &computed,
-                &parent_working_log,
-                hunks_json.as_deref(),
-            );
+            hunks_json_for_metrics = hunks_json;
+            computed_for_metrics = Some(computed.clone());
             stats = Some(computed);
         }
+    }
+
+    // 把占比（src/ 内口径，由 stats_for_commit_stats_from_hunks 的 include 过滤保证）
+    // 注入 note metadata，随 note 一起持久化，供 `git ai show` 直接读取展示。
+    authorship_log.metadata.stats = stats.clone();
+
+    let authorship_note_str = authorship_log
+        .serialize_to_string()
+        .map_err(|_| GitAiError::Generic("Failed to serialize authorship log".to_string()))?;
+
+    write_note(repo, &commit_sha, &authorship_note_str)?;
+
+    // Record metrics only when we have full stats（移到 write_note 之后，因为依赖 authorship_note_str）。
+    if let Some(computed) = computed_for_metrics {
+        record_commit_metrics(
+            repo,
+            &commit_sha,
+            // Store the recorded parent as `base_commit_sha`, not the
+            // `<commit>^` diff rev-expression used for the diff spawns.
+            &parent_sha,
+            &human_author,
+            &authorship_note_str,
+            &computed,
+            &parent_working_log,
+            hunks_json_for_metrics.as_deref(),
+        );
     }
 
     if options.compute_stats && skip_reason.is_some() {
@@ -846,7 +860,7 @@ pub(crate) fn post_commit_amend_with_recovery_timestamps_detailed(
 
     // ===== include_path 最终保底过滤（amend 路径）=====
     {
-        let include_path = std::env::var("GITIA_CHECKPOINT_INCLUDE")
+        let include_path = std::env::var("GITAI_CHECKPOINT_INCLUDE")
             .ok()
             .filter(|v| !v.is_empty())
             .unwrap_or_else(|| "src/".to_string());

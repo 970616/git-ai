@@ -630,12 +630,23 @@ pub(crate) fn stats_for_commit_stats_from_hunks_with_merge_flag(
 ) -> CommitStats {
     let ignore_matcher = build_ignore_matcher(ignore_patterns);
 
+    // 与 post_commit/daemon 的 include_path 过滤同口径：只统计 src/（或
+    // GITAI_CHECKPOINT_INCLUDE 指定目录）以内的文件，src/ 以外的改动不计入占比，
+    // 避免无归因的非源码文件把 unknown_additions（UI 上的 "untracked"）撑高。
+    let include_path = std::env::var("GITAI_CHECKPOINT_INCLUDE")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| "src/".to_string());
+
     let mut git_diff_added_lines = 0u32;
     let mut git_diff_deleted_lines = 0u32;
     let mut added_lines_by_file: HashMap<String, Vec<u32>> = HashMap::new();
 
     for hunk in hunks {
         if should_ignore_file_with_matcher(&hunk.file_path, &ignore_matcher) {
+            continue;
+        }
+        if !hunk.file_path.starts_with(&include_path) {
             continue;
         }
         git_diff_added_lines += hunk.added_lines.len() as u32;
