@@ -14,7 +14,7 @@ const AUTHORSHIP_NOTE_WAIT_TIMEOUT: Duration = Duration::from_secs(5);
 const AUTHORSHIP_NOTE_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const WAIT_MESSAGE: &str = "Waiting for git-ai to process this commit";
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct ToolModelHeadlineStats {
     #[serde(default)]
     pub ai_additions: u32, // Number of lines committed with AI attribution
@@ -22,7 +22,7 @@ pub struct ToolModelHeadlineStats {
     pub ai_accepted: u32, // Number of AI-generated lines that were accepted by the user without any human edits
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct CommitStats {
     #[serde(default)]
     pub human_additions: u32, // Number of lines committed with human attribution
