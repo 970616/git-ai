@@ -1331,6 +1331,79 @@ def commits_to_push(local_sha, remote_sha, remote_name):
         rng = git("rev-list", local_sha, "--not", "--remotes=%s" % remote_name)
     return [c for c in rng.split() if c]
 
+def parse_note(note_text):
+    """把 note 文本解析成 (files 结构化数组, metadata dict)。
+
+    note 格式：
+        <文件路径>
+          <hash> <行范围，如 1,3-9,14-15>
+        ...
+        ---
+        {metadata JSON}
+    """
+    lines = note_text.splitlines()
+    divider = None
+    for i, line in enumerate(lines):
+        if line.strip() == "---":
+            divider = i
+            break
+    attest_lines = lines[:divider] if divider is not None else lines
+    meta_lines = lines[divider + 1:] if divider is not None else []
+
+    meta = {}
+    if meta_lines:
+        try:
+            meta = json.loads("\n".join(meta_lines))
+        except Exception:
+            meta = {}
+
+    files = []
+    cur_file = None
+    for line in attest_lines:
+        if not line.strip():
+            continue
+        if line.startswith("  "):
+            # 归因条目行：两空格缩进 "<hash> <ranges>"
+            if cur_file is None:
+                continue
+            parts = line.strip().split(None, 1)
+            if len(parts) != 2:
+                continue
+            author, ranges_str = parts
+            a_type = "human" if author.startswith("h_") else "ai"
+            for part in ranges_str.split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                if "-" in part:
+                    s, e = part.split("-", 1)
+                    try:
+                        start, end = int(s), int(e)
+                    except ValueError:
+                        continue
+                else:
+                    try:
+                        start = end = int(part)
+                    except ValueError:
+                        continue
+                cur_file["lines"].append(
+                    {"start": start, "end": end, "author": author, "type": a_type}
+                )
+        else:
+            # 文件路径行（顶格，含空格的路径带双引号）
+            path = line.strip()
+            if path.startswith('"') and path.endswith('"'):
+                path = path[1:-1]
+            cur_file = {"path": path, "lines": []}
+            files.append(cur_file)
+    return files, meta
+
+def commit_time(commit):
+    """提交时间，格式 2026-06-26 01:06:54.000000（本地时区）。"""
+    t = git("log", "-1", "--format=%cd",
+            "--date=format:%Y-%m-%d %H:%M:%S", commit).strip()
+    return (t + ".000000") if t else ""
+
 def post_json(endpoint, token, payload):
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = Request(endpoint, data=data, method="POST")
@@ -1354,6 +1427,11 @@ def main():
         sys.stderr.write("  Set it with: git config gitai-report.endpoint <url>\n")
         return 0
 
+    # 仓库地址（上报新增字段 git_repo_url）：优先用本次 push 的 remote url，
+    # 取不到时回退 origin 的 url。
+    repo_url = remote_url or git("remote", "get-url", remote_name).strip() \
+        or git("remote", "get-url", "origin").strip()
+
     had_error = False
     for raw in sys.stdin:
         parts = raw.split()
@@ -1367,14 +1445,29 @@ def main():
             note = git("notes", "--ref=%s" % notes_ref, "show", commit)
             if not note.strip():
                 continue
+            files, meta = parse_note(note)
             payload = {
+                # ===== 仓库 / 提交标识（本次新增）=====
+                "git_repo_url": repo_url,
+                "commit_sha": commit,
+                "commit_at": commit_time(commit),
+                # ===== 归因主体（结构化，来自 note）=====
+                "schema_version": meta.get("schema_version", ""),
+                "git_ai_version": meta.get("git_ai_version", ""),
+                "base_commit_sha": meta.get("base_commit_sha", ""),
+                "humans": meta.get("humans", {}),
+                "sessions": meta.get("sessions", {}),
+                "files": files,
+                # ===== Gerrit 相关（附带保留）=====
                 "remote": remote_name, "remote_url": remote_url,
                 "target_ref": remote_ref, "target_branch": branch,
-                "commit": commit, "change_id": extract_change_id(commit),
+                "change_id": extract_change_id(commit),
                 "notes_ref": "refs/notes/%s" % notes_ref,
-                "note": note,
                 "reported_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             }
+            # 占比统计（note 里有才带，旧 commit 没有）
+            if "stats" in meta:
+                payload["stats"] = meta["stats"]
             try:
                 code = post_json(endpoint, token, payload)
                 sys.stderr.write("[git-ai-report] OK %s (change %s) -> HTTP %s\n"
