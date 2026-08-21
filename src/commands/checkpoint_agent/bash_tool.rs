@@ -318,6 +318,11 @@ pub fn classify_tool(agent: Agent, tool_name: &str) -> ToolClass {
             "Bash" => ToolClass::Bash,
             _ => ToolClass::Skip,
         },
+        Agent::Qoder => match tool_name {
+            "Write" | "Edit" | "MultiEdit" => ToolClass::FileEdit,
+            "Bash" => ToolClass::Bash,
+            _ => ToolClass::Skip,
+        },
         Agent::Gemini => match tool_name {
             "write_file" | "replace" => ToolClass::FileEdit,
             "shell" => ToolClass::Bash,
@@ -403,6 +408,7 @@ pub enum Agent {
     Windsurf,
     Cursor,
     Cline,
+    Qoder,
 }
 
 // ---------------------------------------------------------------------------

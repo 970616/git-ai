@@ -18,6 +18,7 @@ mod mock_ai;
 mod mock_known_human;
 mod opencode;
 mod pi;
+mod qoder;
 mod windsurf;
 
 use crate::authorship::working_log::AgentId;
@@ -153,6 +154,7 @@ pub trait AgentPreset {
 pub fn resolve_preset(name: &str) -> Result<Box<dyn AgentPreset>, GitAiError> {
     match name {
         "claude" => Ok(Box::new(claude::ClaudePreset)),
+        "qoder" => Ok(Box::new(qoder::QoderPreset)),
         "cline" => Ok(Box::new(cline::ClinePreset)),
         "codex" => Ok(Box::new(codex::CodexPreset)),
         "gemini" => Ok(Box::new(gemini::GeminiPreset)),

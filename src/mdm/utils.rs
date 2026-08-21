@@ -436,6 +436,17 @@ pub fn claude_config_dir() -> PathBuf {
     home_dir().join(".claude")
 }
 
+/// Qoder config directory, respecting the QODER_CONFIG_DIR env var.
+/// Falls back to ~/.qoder when unset (Qoder international edition).
+pub fn qoder_config_dir() -> PathBuf {
+    if let Ok(dir) = std::env::var("QODER_CONFIG_DIR")
+        && !dir.is_empty()
+    {
+        return PathBuf::from(dir);
+    }
+    home_dir().join(".qoder")
+}
+
 /// Codex home directory, respecting the CODEX_HOME env var.
 /// Falls back to ~/.codex when unset.
 pub fn codex_home_dir() -> PathBuf {

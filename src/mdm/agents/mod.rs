@@ -10,6 +10,7 @@ mod github_copilot;
 mod jetbrains;
 mod opencode;
 mod pi;
+mod qoder;
 #[cfg(windows)]
 mod visual_studio;
 mod vscode;
@@ -27,6 +28,7 @@ pub use github_copilot::GitHubCopilotInstaller;
 pub use jetbrains::JetBrainsInstaller;
 pub use opencode::OpenCodeInstaller;
 pub use pi::PiInstaller;
+pub use qoder::QoderInstaller;
 #[cfg(windows)]
 pub use visual_studio::VisualStudioInstaller;
 pub use vscode::VSCodeInstaller;
@@ -38,6 +40,7 @@ use super::hook_installer::HookInstaller;
 pub fn get_all_installers() -> Vec<Box<dyn HookInstaller>> {
     let mut installers: Vec<Box<dyn HookInstaller>> = vec![
         Box::new(ClaudeCodeInstaller),
+        Box::new(QoderInstaller),
         Box::new(ClineInstaller),
         Box::new(CodexInstaller),
         Box::new(CursorInstaller),
