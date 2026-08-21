@@ -1409,7 +1409,7 @@ def post_json(endpoint, token, payload):
     req = Request(endpoint, data=data, method="POST")
     req.add_header("Content-Type", "application/json; charset=utf-8")
     if token:
-        req.add_header("Authorization", "Bearer %s" % token)
+        req.add_header("Authorization", "Token %s" % token)
     resp = urlopen(req, timeout=15)
     return resp.getcode()
 
@@ -1449,7 +1449,7 @@ def main():
             payload = {
                 # ===== 仓库 / 提交标识（本次新增）=====
                 "git_repo_url": repo_url,
-                "commit_sha": commit,
+                "head_commit_sha": commit,
                 "commit_at": commit_time(commit),
                 # ===== 归因主体（结构化，来自 note）=====
                 "schema_version": meta.get("schema_version", ""),
