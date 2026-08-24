@@ -92,6 +92,53 @@ pub fn should_ignore_file_with_matcher(path: &str, matcher: &IgnoreMatcher) -> b
     matcher.is_ignored(path)
 }
 
+/// 平台网元排除目录 Top20（按使用网元数统计），glob 语法。
+/// `**/x/**` = 任意层级下的 x 目录；`x/**` = 仓库根下的一层；
+/// `*/x/**` = 恰好一层子目录下的 x（与平台 `*/x/` 配置语义一致）。
+pub const DEFAULT_CHECKPOINT_EXCLUDE_PATTERNS: &[&str] = &[
+    "**/node_modules/**",
+    "**/build/**",
+    "**/public/**",
+    "Submodule/**",
+    "src/test/**",
+    "**/dist/**",
+    "**/server/**",
+    "**/logs/**",
+    "**/vendor/**",
+    "src/main/java/com/hisense/hitv/api/**",
+    "**/pkg/**",
+    "**/3rd/**",
+    "**/protocol/**",
+    "src/third_party/**",
+    "**/Pods/**",
+    "*/__tests__/**",
+    "**/dev-tools/**",
+    "src/vendor/**",
+];
+
+/// checkpoint 排除目录模式：默认 Top20 + 环境变量 GITAI_CHECKPOINT_EXCLUDE
+/// （逗号分隔）追加。追加项与默认项同名时去重。
+pub fn checkpoint_exclude_patterns() -> Vec<String> {
+    let mut patterns: Vec<String> = DEFAULT_CHECKPOINT_EXCLUDE_PATTERNS
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    if let Ok(extra) = std::env::var("GITAI_CHECKPOINT_EXCLUDE") {
+        for p in extra.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+            if !patterns.iter().any(|x| x == p) {
+                patterns.push(p.to_string());
+            }
+        }
+    }
+    patterns
+}
+
+/// 判断 checkpoint 路径是否命中排除目录（全仓统计的黑名单）。
+pub fn should_exclude_checkpoint_path(path: &str) -> bool {
+    let matcher = build_ignore_matcher(&checkpoint_exclude_patterns());
+    should_ignore_file_with_matcher(path, &matcher)
+}
+
 /// Check if a file path should be ignored based on the provided patterns.
 /// Supports both exact matches and glob patterns (e.g., "*.lock", "**/*.generated.js").
 #[allow(dead_code)] // Kept for API compatibility; prefer should_ignore_file_with_matcher in hot paths.
@@ -470,5 +517,102 @@ mod tests {
         assert!(!should_ignore_file_with_matcher("app.swift", &matcher));
         assert!(!should_ignore_file_with_matcher("widget.dart", &matcher));
         assert!(!should_ignore_file_with_matcher("Objective.m", &matcher));
+    }
+
+    // ---- checkpoint 排除目录（Top20 黑名单）----
+
+    #[test]
+    fn checkpoint_exclude_top20_directories() {
+        let matcher = build_ignore_matcher(&checkpoint_exclude_patterns());
+
+        // 排除目录命中（含任意层级 node_modules、src/ 内子目录、子目录层级）
+        for path in [
+            "src/node_modules/x.js",            // 顶层 node_modules（被 node_modules/ 覆盖）
+            "src/a/b/node_modules/y.js",        // 任意层级 node_modules
+            "node_modules/z.js",                // 仓库根 node_modules
+            "src/build/x.js",                   // 任意层级 build/
+            "src/dist/x.js",
+            "src/public/x.js",
+            "src/test/x.js",                    // 仓库根 src/test/
+            "src/server/x.js",
+            "src/logs/x.js",
+            "src/vendor/x.js",
+            "src/third_party/x.js",
+            "Submodule/x.c",
+            "src/Pods/x.swift",
+            "src/3rd/x.c",
+            "src/protocol/x.c",
+            "src/pkg/x.go",
+            "src/__tests__/x.ts",               // */__tests__/ 一层子目录
+            "src/dev-tools/x.js",
+            "src/main/java/com/hisense/hitv/api/x.java",
+            "src/main/java/com/hisense/hitv/api/deep/y.java",
+        ] {
+            assert!(
+                should_ignore_file_with_matcher(path, &matcher),
+                "应当排除: {path}"
+            );
+        }
+    }
+
+    #[test]
+    fn checkpoint_does_not_exclude_normal_src_files() {
+        let matcher = build_ignore_matcher(&checkpoint_exclude_patterns());
+
+        for path in [
+            "src/utils/date.ts",
+            "src/components/Button.vue",
+            "src/main/java/com/hisense/hitv/Hello.java",
+            "src/hisense/vendor",               // 注意:src/vendor/ 匹配 src/vendor/ 前缀,
+            "src/vendor.ts",                    // 但文件不是目录内
+            "src/views/Home.vue",
+        ] {
+            assert!(
+                !should_ignore_file_with_matcher(path, &matcher),
+                "不应排除: {path}"
+            );
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn checkpoint_exclude_env_extra_patterns() {
+        let guard = EnvGuard::set("GITAI_CHECKPOINT_EXCLUDE", "src/mock/**,dist-assets/**");
+        let matcher = build_ignore_matcher(&checkpoint_exclude_patterns());
+
+        // env 追加的目录被排除
+        assert!(should_ignore_file_with_matcher("src/mock/api.js", &matcher));
+        assert!(should_ignore_file_with_matcher("dist-assets/x.js", &matcher));
+        // 默认 Top20 仍然生效
+        assert!(should_ignore_file_with_matcher("src/node_modules/x.js", &matcher));
+        // 未追加的目录不受影响
+        assert!(!should_ignore_file_with_matcher("src/utils/date.ts", &matcher));
+        drop(guard);
+    }
+
+    struct EnvGuard {
+        key: &'static str,
+        old: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            let old = std::env::var(key).ok();
+            unsafe {
+                std::env::set_var(key, value);
+            }
+            Self { key, old }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            unsafe {
+                match &self.old {
+                    Some(v) => std::env::set_var(self.key, v),
+                    None => std::env::remove_var(self.key),
+                }
+            }
+        }
     }
 }

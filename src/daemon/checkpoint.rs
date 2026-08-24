@@ -197,16 +197,16 @@ fn execute_resolved_checkpoint(
         ));
     }
 
-    // ===== include_path 过滤（catch-all，覆盖 daemon post_commit 兜底等绕过
+    // ===== 排除黑名单过滤（catch-all，覆盖 daemon post_commit 兜底等绕过
     // resolve_checkpoint_request 的路径）=====
-    // 只保留 include_path（默认 src/）下的文件，src 外的彻底不记归属。
+    // 全仓统计，仅去掉命中排除目录（node_modules/、build/ 等）的文件。
     {
-        let include_path = std::env::var("GITAI_CHECKPOINT_INCLUDE")
-            .ok()
-            .filter(|v| !v.is_empty())
-            .unwrap_or_else(|| "src/".to_string());
-        resolved.files.retain(|f| f.starts_with(&include_path));
-        resolved.dirty_files.retain(|f, _| f.starts_with(&include_path));
+        resolved
+            .files
+            .retain(|f| !crate::authorship::ignore::should_exclude_checkpoint_path(f));
+        resolved
+            .dirty_files
+            .retain(|f, _| !crate::authorship::ignore::should_exclude_checkpoint_path(f));
         if resolved.files.is_empty() {
             return Ok((0, 0, 0));
         }

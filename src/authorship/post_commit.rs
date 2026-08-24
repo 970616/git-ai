@@ -4,7 +4,8 @@ use crate::authorship::attribution_recovery::{
 use crate::authorship::authorship_log_serialization::AuthorshipLog;
 use crate::authorship::diff_base::single_commit_diff_base;
 use crate::authorship::ignore::{
-    build_ignore_matcher, effective_ignore_patterns, should_ignore_file_with_matcher,
+    build_ignore_matcher, effective_ignore_patterns, should_exclude_checkpoint_path,
+    should_ignore_file_with_matcher,
 };
 use crate::authorship::rewrite::DiffTreeResult;
 use crate::authorship::stats::{stats_for_commit_stats_from_hunks, write_stats_to_terminal};
@@ -423,19 +424,15 @@ where
         }
     }
 
-    // ===== include_path 最终保底过滤 =====
+    // ===== 排除黑名单最终保底过滤 =====
     // post_commit_from_working_log 会从 commit diff 补全未归属行（fill_unattributed_lines
     // / attribution_recovery），这些路径绕过了 execute_resolved_checkpoint 里的过滤。
-    // 在写 git note 之前，把 attestations 里非 include_path 的文件全部删掉，
-    // 确保 git note 里只有 src/ 下的文件。这是最后一道闸，所有路径都逃不掉。
+    // 在写 git note 之前，把 attestations 里命中排除目录的文件全部删掉。
+    // 这是最后一道闸，所有路径都逃不掉。
     {
-        let include_path = std::env::var("GITAI_CHECKPOINT_INCLUDE")
-            .ok()
-            .filter(|v| !v.is_empty())
-            .unwrap_or_else(|| "src/".to_string());
         authorship_log
             .attestations
-            .retain(|a| a.file_path.starts_with(&include_path));
+            .retain(|a| !should_exclude_checkpoint_path(&a.file_path));
     }
 
     // Compute stats once (needed for note metadata, metrics and terminal output), unless
@@ -858,15 +855,11 @@ pub(crate) fn post_commit_amend_with_recovery_timestamps_detailed(
         }
     }
 
-    // ===== include_path 最终保底过滤（amend 路径）=====
+    // ===== 排除黑名单最终保底过滤（amend 路径）=====
     {
-        let include_path = std::env::var("GITAI_CHECKPOINT_INCLUDE")
-            .ok()
-            .filter(|v| !v.is_empty())
-            .unwrap_or_else(|| "src/".to_string());
         authorship_log
             .attestations
-            .retain(|a| a.file_path.starts_with(&include_path));
+            .retain(|a| !should_exclude_checkpoint_path(&a.file_path));
     }
 
     // 算占比（src/ 内口径）注入 note metadata，供 `git ai show` 直接展示，与正常 commit 路径一致。

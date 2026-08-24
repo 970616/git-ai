@@ -907,7 +907,8 @@ fn resolve_checkpoint_request(
     request: &mut CheckpointRequest,
 ) -> Result<Option<crate::daemon::checkpoint::ResolvedCheckpointExecution>, GitAiError> {
     use crate::authorship::ignore::{
-        build_ignore_matcher, effective_ignore_patterns, should_ignore_file_with_matcher,
+        build_ignore_matcher, effective_ignore_patterns, should_exclude_checkpoint_path,
+        should_ignore_file_with_matcher,
     };
     use crate::commands::checkpoint_agent::orchestrator::BaseCommit;
     use crate::utils::normalize_to_posix;
@@ -930,26 +931,6 @@ fn resolve_checkpoint_request(
     let mut seen = std::collections::HashSet::new();
     let config = config::Config::fresh();
     let mut content_budget = CheckpointContentBudget::from_config(&config);
-
-    // 只跟踪 include_path 下的文件（默认 src/），src 外的文件不记归属。
-    // 这样 Claude hook（AI 捕获）、pre-commit hook（人捕获）、daemon post_commit 兜底
-    // 全部只处理 src/ 下的文件。读取来源：GITAI_CHECKPOINT_INCLUDE 环境变量
-    // > git config gitai.checkpoint.include > 默认 "src/"。
-    let include_path = std::env::var("GITAI_CHECKPOINT_INCLUDE")
-        .ok()
-        .filter(|v| !v.is_empty())
-        .or_else(|| {
-            let mut cmd = std::process::Command::new(config.git_cmd());
-            cmd.args(["config", "--get", "gitai.checkpoint.include"])
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::null());
-            crate::git::repository::apply_internal_git_env(&mut cmd);
-            cmd.output().ok().and_then(|o| {
-                let val = String::from_utf8_lossy(&o.stdout).trim().to_string();
-                if val.is_empty() { None } else { Some(val) }
-            })
-        })
-        .unwrap_or_else(|| "src/".to_string());
 
     for file in &mut request.files {
         let path_str = file.path.to_string_lossy();
@@ -986,8 +967,9 @@ fn resolve_checkpoint_request(
             continue;
         }
 
-        // 只跟踪 include_path（默认 src/）下的文件，src 外的跳过（不记归属）
-        if !relative_path.starts_with(&include_path) {
+        // 全仓统计，仅排除黑名单（node_modules/、build/ 等默认 Top18，可用
+        // GITAI_CHECKPOINT_EXCLUDE 追加）：命中排除目录的不记归属。
+        if should_exclude_checkpoint_path(&relative_path) {
             continue;
         }
 

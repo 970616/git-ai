@@ -1,4 +1,6 @@
-use crate::authorship::ignore::effective_ignore_patterns;
+use crate::authorship::ignore::{
+    effective_ignore_patterns, should_exclude_checkpoint_path,
+};
 use crate::authorship::internal_db::InternalDatabase;
 use crate::authorship::range_authorship;
 use crate::authorship::stats::stats_command;
@@ -1141,25 +1143,14 @@ fn handle_hook(args: &[String]) {
         return;
     }
 
-    let include_path = std::env::var("GITAI_CHECKPOINT_INCLUDE")
-        .ok()
-        .or_else(|| {
-            Command::new("git")
-                .args(["config", "--get", "gitai.checkpoint.include"])
-                .output()
-                .ok()
-                .and_then(|o| {
-                    let val = String::from_utf8_lossy(&o.stdout).trim().to_string();
-                    if val.is_empty() { None } else { Some(val) }
-                })
-        })
-        .unwrap_or_else(|| "src/".to_string());
-
-    // Collect filtered file paths
+    // Collect filtered file paths（全仓统计，仅排除黑名单目录）
     let mut files: Vec<String> = Vec::new();
     for f in changed.lines() {
         let f = f.trim();
-        if f.is_empty() || !f.starts_with(&include_path) {
+        if f.is_empty() {
+            continue;
+        }
+        if should_exclude_checkpoint_path(f) {
             continue;
         }
         let abs_path = std::path::Path::new(&root).join(f);
@@ -1173,7 +1164,7 @@ fn handle_hook(args: &[String]) {
         return;
     }
 
-    eprintln!("[git-ai] pre-commit: {} file(s) to checkpoint (include={})", files.len(), include_path);
+    eprintln!("[git-ai] pre-commit: {} file(s) to checkpoint", files.len());
 
     // Build hook_input JSON (same format as CLI `checkpoint mock_known_human <files>`)
     let hook_input = synthesize_hook_input_from_cli_args(
