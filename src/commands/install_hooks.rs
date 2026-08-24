@@ -1468,6 +1468,11 @@ def main():
             # 占比统计（note 里有才带，旧 commit 没有）
             if "stats" in meta:
                 payload["stats"] = meta["stats"]
+            # 上报日志：接口完整路径 + 鉴权头 + 完整传参，方便核对上报内容。
+            sys.stderr.write("[git-ai-report] POST %s\n" % endpoint)
+            sys.stderr.write("[git-ai-report] Authorization: Token %s\n" % (token or "***"))
+            sys.stderr.write("[git-ai-report] payload: %s\n"
+                % json.dumps(payload, ensure_ascii=False))
             try:
                 code = post_json(endpoint, token, payload)
                 sys.stderr.write("[git-ai-report] OK %s (change %s) -> HTTP %s\n"
