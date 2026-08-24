@@ -447,6 +447,17 @@ pub fn qoder_config_dir() -> PathBuf {
     home_dir().join(".qoder")
 }
 
+/// Kiro config directory, respecting the KIRO_CONFIG_DIR env var.
+/// Falls back to ~/.kiro when unset.
+pub fn kiro_config_dir() -> PathBuf {
+    if let Ok(dir) = std::env::var("KIRO_CONFIG_DIR")
+        && !dir.is_empty()
+    {
+        return PathBuf::from(dir);
+    }
+    home_dir().join(".kiro")
+}
+
 /// Codex home directory, respecting the CODEX_HOME env var.
 /// Falls back to ~/.codex when unset.
 pub fn codex_home_dir() -> PathBuf {

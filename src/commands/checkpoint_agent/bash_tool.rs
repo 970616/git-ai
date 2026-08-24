@@ -323,6 +323,14 @@ pub fn classify_tool(agent: Agent, tool_name: &str) -> ToolClass {
             "Bash" => ToolClass::Bash,
             _ => ToolClass::Skip,
         },
+        // Kiro CLI 2.x uses snake_case tool names (canonical or aliases):
+        // file edits -> fs_write / write; shell -> execute_bash / shell.
+        // Reads and other tools are skipped (not checkpointed).
+        Agent::Kiro => match tool_name {
+            "fs_write" | "write" | "fs_edit" | "edit" => ToolClass::FileEdit,
+            "execute_bash" | "shell" | "bash" => ToolClass::Bash,
+            _ => ToolClass::Skip,
+        },
         Agent::Gemini => match tool_name {
             "write_file" | "replace" => ToolClass::FileEdit,
             "shell" => ToolClass::Bash,
@@ -409,6 +417,7 @@ pub enum Agent {
     Cursor,
     Cline,
     Qoder,
+    Kiro,
 }
 
 // ---------------------------------------------------------------------------

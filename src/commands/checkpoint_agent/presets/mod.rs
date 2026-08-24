@@ -16,6 +16,7 @@ mod human;
 mod known_human;
 mod mock_ai;
 mod mock_known_human;
+mod kiro;
 mod opencode;
 mod pi;
 mod qoder;
@@ -155,6 +156,7 @@ pub fn resolve_preset(name: &str) -> Result<Box<dyn AgentPreset>, GitAiError> {
     match name {
         "claude" => Ok(Box::new(claude::ClaudePreset)),
         "qoder" => Ok(Box::new(qoder::QoderPreset)),
+        "kiro" => Ok(Box::new(kiro::KiroPreset)),
         "cline" => Ok(Box::new(cline::ClinePreset)),
         "codex" => Ok(Box::new(codex::CodexPreset)),
         "gemini" => Ok(Box::new(gemini::GeminiPreset)),

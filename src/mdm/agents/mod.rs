@@ -8,6 +8,7 @@ mod firebender;
 mod gemini;
 mod github_copilot;
 mod jetbrains;
+mod kiro;
 mod opencode;
 mod pi;
 mod qoder;
@@ -26,6 +27,7 @@ pub use firebender::FirebenderInstaller;
 pub use gemini::GeminiInstaller;
 pub use github_copilot::GitHubCopilotInstaller;
 pub use jetbrains::JetBrainsInstaller;
+pub use kiro::KiroInstaller;
 pub use opencode::OpenCodeInstaller;
 pub use pi::PiInstaller;
 pub use qoder::QoderInstaller;
@@ -41,6 +43,7 @@ pub fn get_all_installers() -> Vec<Box<dyn HookInstaller>> {
     let mut installers: Vec<Box<dyn HookInstaller>> = vec![
         Box::new(ClaudeCodeInstaller),
         Box::new(QoderInstaller),
+        Box::new(KiroInstaller),
         Box::new(ClineInstaller),
         Box::new(CodexInstaller),
         Box::new(CursorInstaller),
