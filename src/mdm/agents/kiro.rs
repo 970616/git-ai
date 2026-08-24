@@ -141,7 +141,7 @@ impl KiroInstaller {
             fs::create_dir_all(dir)?;
         }
         let existing_content = if settings_path.exists() {
-            fs::read_to_string(settings_path)?
+            fs::read_to_string(&settings_path)?
         } else {
             String::new()
         };
