@@ -1179,11 +1179,16 @@ fn install_precommit_hook(binary_path: &Path, dry_run: bool) {
             return;
         }
 
+        // 用二进制绝对路径，不依赖 PATH（git hook 可能被 IDE/平台进程触发，
+        // 它们的 PATH 里不一定有 git-ai）。handle_hook 是进程内执行，不需要 daemon。
+        let binary_str = binary_path.to_string_lossy().replace('\\', "/");
+        let hook_cmd = format!("{} hook pre-commit", binary_str);
+
         // 文件可能还不存在（项目用 husky 但没写过 pre-commit）→ 创建
         let content = fs::read_to_string(&husky_precommit).unwrap_or_default();
 
-        // 已含 git-ai hook → 跳过
-        if content.contains(marker) {
+        // 已是新格式（绝对路径调用）→ 跳过
+        if content.contains(&hook_cmd) {
             println!(
                 "  ✓ husky pre-commit already configured: {}",
                 husky_precommit.display()
@@ -1191,14 +1196,25 @@ fn install_precommit_hook(binary_path: &Path, dry_run: bool) {
             return;
         }
 
+        // 旧格式（裸命令名 `git-ai hook pre-commit`，依赖 PATH）升级为绝对路径；
+        // 全新文件则原样保留。
+        let content = if content.contains(marker) {
+            content.replace(marker, &hook_cmd)
+        } else {
+            content
+        };
+
         // 前置 git-ai hook：必须在 lint-staged / prettier / eslint --fix 之前跑，
         // 否则这些工具会格式化 AI 写的代码，让 git-ai 误判成"人改的"（行内容变了→归人）。
         let trimmed = content.trim_end();
         // 用 `|| true;` 而非 `&&`：git-ai hook 崩溃/失败也不阻断后续 lint/type-check 和 commit。
         let new_content = if trimmed.is_empty() {
-            format!("{} || true\n", marker)
+            format!("{} || true\n", hook_cmd)
+        } else if trimmed.contains(&hook_cmd) {
+            // 旧格式升级后已含绝对路径命令，原样写回即可。
+            format!("{}\n", trimmed)
         } else {
-            format!("{} || true; {}\n", marker, trimmed)
+            format!("{} || true; {}\n", hook_cmd, trimmed)
         };
 
         if let Err(e) = fs::write(&husky_precommit, &new_content) {
