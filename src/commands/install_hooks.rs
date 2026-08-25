@@ -1423,8 +1423,6 @@ def main():
     fail_on_error = git_config("gitai-report.failonerror", "false").lower() in ("1", "true", "yes")
 
     if not endpoint:
-        sys.stderr.write("[git-ai-report] Skipping: gitai-report.endpoint not configured.\n")
-        sys.stderr.write("  Set it with: git config gitai-report.endpoint <url>\n")
         return 0
 
     # 仓库地址（上报新增字段 git_repo_url）：优先用本次 push 的 remote url，
@@ -1468,15 +1466,9 @@ def main():
             # 占比统计（note 里有才带，旧 commit 没有）
             if "stats" in meta:
                 payload["stats"] = meta["stats"]
-            # 上报日志：接口完整路径 + 鉴权头 + 完整传参，方便核对上报内容。
-            sys.stderr.write("[git-ai-report] POST %s\n" % endpoint)
-            sys.stderr.write("[git-ai-report] Authorization: Token %s\n" % (token or "***"))
-            sys.stderr.write("[git-ai-report] payload: %s\n"
-                % json.dumps(payload, ensure_ascii=False))
+            # 正常上报静默（用户无感知）；仅失败时输出一条错误便于排障。
             try:
-                code = post_json(endpoint, token, payload)
-                sys.stderr.write("[git-ai-report] OK %s (change %s) -> HTTP %s\n"
-                    % (commit[:12], payload["change_id"] or "-", code))
+                post_json(endpoint, token, payload)
             except Exception as e:
                 had_error = True
                 sys.stderr.write("[git-ai-report] FAIL %s: %s\n" % (commit[:12], e))

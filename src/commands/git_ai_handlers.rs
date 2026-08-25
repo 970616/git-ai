@@ -1164,8 +1164,6 @@ fn handle_hook(args: &[String]) {
         return;
     }
 
-    eprintln!("[git-ai] pre-commit: {} file(s) to checkpoint", files.len());
-
     // Build hook_input JSON (same format as CLI `checkpoint mock_known_human <files>`)
     let hook_input = synthesize_hook_input_from_cli_args(
         "mock_known_human",
@@ -1182,7 +1180,6 @@ fn handle_hook(args: &[String]) {
     };
 
     if requests.is_empty() {
-        eprintln!("[git-ai] pre-commit: no checkpoint requests generated, done");
         return;
     }
 
@@ -1190,29 +1187,13 @@ fn handle_hook(args: &[String]) {
     // 这会直接 discover repo + resolve + 写 working_log，不经 daemon socket，
     // 从而避开 commit 期间 trace2 洪流淹没 control socket 导致的超时问题。
     // daemon 的 post_commit 后续会读到这条 KnownHuman（配合归属引擎正确归人）。
-    let mut ok = 0u32;
-    let mut fail = 0u32;
+    // 正常路径静默（用户无感知）；仅失败时输出一条错误便于排障。
     for request in requests {
-        for file in &request.files {
-            eprintln!("[git-ai] checkpoint: {}", file.path.display());
-        }
         let file_count = request.files.len() as u32;
-        match crate::daemon::apply_checkpoint_side_effect(request) {
-            Ok(_) => {
-                ok += file_count;
-                eprintln!("[git-ai]   -> OK");
-            }
-            Err(e) => {
-                fail += file_count;
-                eprintln!("[git-ai]   -> FAIL: {}", e);
-            }
+        if let Err(e) = crate::daemon::apply_checkpoint_side_effect(request) {
+            eprintln!("[git-ai] checkpoint FAIL ({} file(s)): {}", file_count, e);
         }
     }
-
-    eprintln!(
-        "[git-ai] pre-commit done: {} ok, {} fail",
-        ok, fail
-    );
 }
 
 fn handle_git_hooks(args: &[String]) {
