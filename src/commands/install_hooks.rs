@@ -341,6 +341,12 @@ pub fn run(args: &[String]) -> Result<HashMap<String, String>, GitAiError> {
     // Get absolute path to the current binary
     let binary_path = get_current_binary_path()?;
     persist_install_config_with_values(&binary_path, options.dry_run, &install_config)?;
+
+    // 配置 clone 模板：新网元 git clone 后自动安装 hooks（失败不致命）
+    if let Err(e) = install_clone_template(options.dry_run) {
+        eprintln!("Warning: could not configure clone template (non-fatal): {e}");
+    }
+
     // Install git pre-push hook for Gerrit notes reporting
     install_git_prepush_hook(&binary_path, options.dry_run);
 
@@ -1006,6 +1012,56 @@ fn cleanup_legacy_envelope_logs() {
     let _ = fs::remove_file(internal.join("last_flush_trigger_ts"));
 }
 
+/// 配置 clone 模板：新网元 `git clone` 后自动安装 git-ai hooks。
+///
+/// 原理：git clone 内部会执行 init，并把 `init.templateDir` 的内容复制到
+/// 新仓库的 `.git/`；模板里的 `hooks/post-checkout` 会出现在新仓库
+/// `.git/hooks/` 中，clone 完成 checkout 时由 git 自动触发 post-checkout，
+/// 在 post-checkout 里自动执行 `git-ai install-hooks`（绝对路径、静默、
+/// 失败不阻塞）。这样终端 clone 新网元后无需手动安装。
+fn install_clone_template(dry_run: bool) -> Result<(), GitAiError> {
+    if dry_run {
+        return Ok(());
+    }
+    let Some(home) = dirs::home_dir() else {
+        return Ok(());
+    };
+    let template_dir = home.join(".git-ai").join("hooks-template");
+    let template_hooks = template_dir.join("hooks");
+    fs::create_dir_all(&template_hooks)?;
+
+    let bin = crate::mdm::utils::get_current_binary_path()?;
+    let bin_str = bin.to_string_lossy().replace('\\', "/");
+
+    let post_checkout = format!(
+        "#!/usr/bin/env sh\n\
+         # git-ai auto-install on clone (first checkout)\n\
+         if [ \"$3\" = \"1\" ]; then\n\
+         repo_root=$(git rev-parse --show-toplevel 2>/dev/null)\n\
+         [ -n \"$repo_root\" ] && (cd \"$repo_root\" && {} install-hooks >/dev/null 2>&1) || true\n\
+         fi\n",
+        bin_str
+    );
+    let post_checkout_path = template_hooks.join("post-checkout");
+    fs::write(&post_checkout_path, post_checkout)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = fs::metadata(&post_checkout_path) {
+            let mut perms = meta.permissions();
+            perms.set_mode(0o755);
+            let _ = fs::set_permissions(&post_checkout_path, perms);
+        }
+    }
+
+    set_global_git_config_value(
+        "git",
+        "init.templateDir",
+        &template_dir.to_string_lossy(),
+    )?;
+    Ok(())
+}
+
 /// Install a pre-push git hook that uploads git-ai authorship notes to a
 /// server before every push. This is the Gerrit workaround: Gerrit does not
 /// support `refs/notes/ai`, so we POST the note data over HTTP instead of
@@ -1135,10 +1191,12 @@ fn install_git_prepush_hook(binary_path: &Path, dry_run: bool) {
 
     println!("  ✓ pre-push hook installed: {}", pre_push_path.display());
 
-    // ===== husky 项目额外装 .husky/pre-push 转发器 =====
+    // ===== .husky 目录存在则额外合并 .husky/pre-push 转发器 =====
     // husky 接管 core.hooksPath 后，git 找 hook 去 .husky/_/，不会跑 .git/hooks/pre-push，
-    // 导致 pre-push 上报在 husky 项目不触发。这里在 .husky/pre-push 放个转发器，
+    // 导致 pre-push 上报在 husky 项目不触发。这里在 .husky/pre-push 放转发器/合并调用，
     // 让 husky 的 dispatcher 执行它时转去跑真正的 pre-push 脚本（stdin 自动透传）。
+    // 只要 .husky/ 目录存在就处理（不依赖 husky 是否激活）——npm install 激活后
+    // git 改跑 .husky/ 时，git-ai 已经就位，无需再跑一次 install-hooks。
     let git_dir_top = match std::process::Command::new("git")
         .args(["rev-parse", "--show-toplevel"])
         .output()
@@ -1148,7 +1206,7 @@ fn install_git_prepush_hook(binary_path: &Path, dry_run: bool) {
         ),
         _ => return,
     };
-    if is_husky_active(&git_dir_top) {
+    if git_dir_top.join(".husky").is_dir() {
         let husky_prepush = git_dir_top.join(".husky").join("pre-push");
 
         let existing = if husky_prepush.exists() {
@@ -1211,38 +1269,127 @@ fn install_git_prepush_hook(binary_path: &Path, dry_run: bool) {
     }
 }
 
-/// 检测项目是否启用了 husky（v9+）。
-/// 准确判断依据：1) core.hooksPath 指向 husky 目录；2) 存在 .husky/_/ shim 目录。
-/// 只看 .husky/pre-commit 是否存在并不准（项目用 husky 但还没写 pre-commit 时会漏判）。
-fn is_husky_active(git_dir: &Path) -> bool {
-    // 1) core.hooksPath 指向 .husky（husky v9 init 会设 core.hooksPath = .husky/_）
-    if let Ok(out) = std::process::Command::new("git")
-        .args(["config", "--get", "core.hooksPath"])
-        .output()
-    {
-        if out.status.success() {
-            let val = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if !val.is_empty() && val.contains(".husky") {
-                return true;
-            }
-        }
-    }
-    // 2) .husky/_/ shim 目录存在（husky v9+ 特征）
-    if git_dir.join(".husky").join("_").is_dir() {
-        return true;
-    }
-    false
-}
-
 /// Install or update the pre-commit hook.
 ///
-/// 优先用 husky（如果项目启用了 husky）：在 `.husky/pre-commit` 里前置
-/// `git-ai hook pre-commit`，且放在 lint-staged/prettier 等格式化工具之前跑，
-/// 避免它们格式化 AI 代码导致归属误判。
-///
-/// 没用 husky 的纯 git 项目：装到标准 `.git/hooks/pre-commit`，
-/// 内容用二进制绝对路径调 `git-ai hook pre-commit`（不依赖 PATH）。
-/// 若那里已存在非 git-ai 的 pre-commit，跳过以免覆盖用户的 hook。
+/// 双写策略：
+/// 1. 标准 `.git/hooks/pre-commit` 始终安装（兜底；husky 未激活时 git 跑这里）。
+///    已存在非 git-ai 的 pre-commit 时合并插入，不覆盖用户文件。
+/// 2. 只要 `.husky/` 目录存在（不依赖 husky 是否激活），就在 `.husky/pre-commit`
+///    前置 `git-ai hook pre-commit`（绝对路径），且放在 lint-staged/prettier 等
+///    格式化工具之前跑，避免它们格式化 AI 代码导致归属误判。
+///    这样 npm install 激活 husky 后 git 改跑 `.husky/` 时，git-ai 已就位。
+/// 标准 .git/hooks/pre-commit 安装（始终执行，兜底）。
+/// 若已存在非 git-ai 的 pre-commit，则合并插入（不覆盖用户文件）。
+fn install_standard_precommit_hook(binary_path: &Path, dry_run: bool) {
+    use std::fs;
+
+    let git_common_dir = match std::process::Command::new("git")
+        .args(["rev-parse", "--git-common-dir"])
+        .output()
+    {
+        Ok(out) if out.status.success() => PathBuf::from(
+            String::from_utf8_lossy(&out.stdout).trim().to_string(),
+        ),
+        _ => return,
+    };
+    let hooks_dir = git_common_dir.join("hooks");
+    let pre_commit_path = hooks_dir.join("pre-commit");
+
+    let marker = "git-ai hook pre-commit";
+    let existing = if pre_commit_path.exists() {
+        fs::read_to_string(&pre_commit_path).unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    let hook_cmd = format!("{} hook pre-commit", binary_path.to_string_lossy().replace('\\', "/"));
+    let is_git_ai = existing.contains("# git-ai pre-commit")
+        || existing.contains(marker)
+        || existing.contains(&hook_cmd);
+
+    // 用户已有自己的 pre-commit → 合并（不覆盖）：shebang 行后插入 git-ai 调用，
+    // 否则人工归属打点会静默断开（人工改动统计不到）。
+    if !existing.trim().is_empty() && !is_git_ai {
+        let insert = format!(
+            "\n# git-ai pre-commit（人工归属打点，失败不阻塞）\n{} || true\n",
+            hook_cmd
+        );
+        let merged = if let Some(first_newline) = existing.find('\n')
+            && existing.trim_start().starts_with("#!")
+        {
+            let (first_line, rest) = existing.split_at(first_newline + 1);
+            format!("{}{}{}", first_line, insert, rest)
+        } else {
+            format!("{}{}", insert, existing)
+        };
+        if dry_run {
+            println!(
+                "  Would merge pre-commit hook into: {}",
+                pre_commit_path.display()
+            );
+            return;
+        }
+        if let Err(e) = fs::write(&pre_commit_path, &merged) {
+            eprintln!("  ⚠ Failed to write pre-commit hook: {}", e);
+            return;
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(meta) = fs::metadata(&pre_commit_path) {
+                let mut perms = meta.permissions();
+                perms.set_mode(0o755);
+                let _ = fs::set_permissions(&pre_commit_path, perms);
+            }
+        }
+        println!(
+            "  ✓ pre-commit hook merged into: {}",
+            pre_commit_path.display()
+        );
+        return;
+    }
+
+    if dry_run {
+        println!(
+            "  Would install pre-commit hook: {}",
+            pre_commit_path.display()
+        );
+        return;
+    }
+
+    // 用二进制绝对路径，不依赖 PATH（git hook 跑时 PATH 可能不全）。
+    // handle_hook 是进程内执行（apply_checkpoint_side_effect），不需要 daemon。
+    // 末尾 `|| true`：git-ai hook 崩溃/失败也不阻断 commit。
+    let binary_str = binary_path.to_string_lossy().replace('\\', "/");
+    let script = format!(
+        "#!/usr/bin/env sh\n# git-ai pre-commit\n# Installed by `git ai install-hooks` — do not edit manually.\n{} hook pre-commit || true\n",
+        binary_str
+    );
+
+    if let Err(e) = fs::create_dir_all(&hooks_dir) {
+        eprintln!("  ⚠ Failed to create hooks dir: {}", e);
+        return;
+    }
+    if let Err(e) = fs::write(&pre_commit_path, &script) {
+        eprintln!("  ⚠ Failed to write pre-commit hook: {}", e);
+        return;
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = fs::metadata(&pre_commit_path) {
+            let mut perms = meta.permissions();
+            perms.set_mode(0o755);
+            let _ = fs::set_permissions(&pre_commit_path, perms);
+        }
+    }
+    println!(
+        "  ✓ pre-commit hook installed: {}",
+        pre_commit_path.display()
+    );
+}
+
 fn install_precommit_hook(binary_path: &Path, dry_run: bool) {
     use std::fs;
 
@@ -1258,8 +1405,12 @@ fn install_precommit_hook(binary_path: &Path, dry_run: bool) {
 
     let marker = "git-ai hook pre-commit";
 
-    if is_husky_active(&git_dir) {
-        // ===== husky 路径：写 .husky/pre-commit（前置，避开 lint 抢归属）=====
+    // 1. 标准 .git/hooks/pre-commit 始终装（兜底；husky 未激活时 git 跑这里）
+    install_standard_precommit_hook(binary_path, dry_run);
+
+    // 2. .husky 目录存在 → 合并 .husky/pre-commit（不依赖 husky 是否激活）。
+    //    这样 npm install 激活 husky 后 git 改跑 .husky/ 时，git-ai 已经就位。
+    if git_dir.join(".husky").is_dir() {
         let husky_precommit = git_dir.join(".husky").join("pre-commit");
 
         if dry_run {
@@ -1315,112 +1466,6 @@ fn install_precommit_hook(binary_path: &Path, dry_run: bool) {
         println!(
             "  ✓ husky pre-commit updated: {}",
             husky_precommit.display()
-        );
-    } else {
-        // ===== 非 husky 路径：装 .git/hooks/pre-commit（标准 git hook）=====
-        let git_common_dir = match std::process::Command::new("git")
-            .args(["rev-parse", "--git-common-dir"])
-            .output()
-        {
-            Ok(out) if out.status.success() => PathBuf::from(
-                String::from_utf8_lossy(&out.stdout).trim().to_string(),
-            ),
-            _ => return,
-        };
-        let hooks_dir = git_common_dir.join("hooks");
-        let pre_commit_path = hooks_dir.join("pre-commit");
-
-        let existing = if pre_commit_path.exists() {
-            fs::read_to_string(&pre_commit_path).unwrap_or_default()
-        } else {
-            String::new()
-        };
-
-        let hook_cmd = format!("{} hook pre-commit", binary_path.to_string_lossy().replace('\\', "/"));
-        let is_git_ai = existing.contains("# git-ai pre-commit")
-            || existing.contains(marker)
-            || existing.contains(&hook_cmd);
-
-        // 用户已有自己的 pre-commit → 合并（不覆盖）：shebang 行后插入 git-ai 调用，
-        // 否则人工归属打点会静默断开（人工改动统计不到）。
-        if !existing.trim().is_empty() && !is_git_ai {
-            let insert = format!(
-                "\n# git-ai pre-commit（人工归属打点，失败不阻塞）\n{} || true\n",
-                hook_cmd
-            );
-            let merged = if let Some(first_newline) = existing.find('\n')
-                && existing.trim_start().starts_with("#!")
-            {
-                let (first_line, rest) = existing.split_at(first_newline + 1);
-                format!("{}{}{}", first_line, insert, rest)
-            } else {
-                format!("{}{}", insert, existing)
-            };
-            if dry_run {
-                println!(
-                    "  Would merge pre-commit hook into: {}",
-                    pre_commit_path.display()
-                );
-                return;
-            }
-            if let Err(e) = fs::write(&pre_commit_path, &merged) {
-                eprintln!("  ⚠ Failed to write pre-commit hook: {}", e);
-                return;
-            }
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                if let Ok(meta) = fs::metadata(&pre_commit_path) {
-                    let mut perms = meta.permissions();
-                    perms.set_mode(0o755);
-                    let _ = fs::set_permissions(&pre_commit_path, perms);
-                }
-            }
-            println!(
-                "  ✓ pre-commit hook merged into: {}",
-                pre_commit_path.display()
-            );
-            return;
-        }
-
-        if dry_run {
-            println!(
-                "  Would install pre-commit hook: {}",
-                pre_commit_path.display()
-            );
-            return;
-        }
-
-        // 用二进制绝对路径，不依赖 PATH（git hook 跑时 PATH 可能不全）。
-        // handle_hook 是进程内执行（apply_checkpoint_side_effect），不需要 daemon。
-        // 末尾 `|| true`：git-ai hook 崩溃/失败也不阻断 commit。
-        let binary_str = binary_path.to_string_lossy().replace('\\', "/");
-        let script = format!(
-            "#!/usr/bin/env sh\n# git-ai pre-commit\n# Installed by `git ai install-hooks` — do not edit manually.\n{} hook pre-commit || true\n",
-            binary_str
-        );
-
-        if let Err(e) = fs::create_dir_all(&hooks_dir) {
-            eprintln!("  ⚠ Failed to create hooks dir: {}", e);
-            return;
-        }
-        if let Err(e) = fs::write(&pre_commit_path, &script) {
-            eprintln!("  ⚠ Failed to write pre-commit hook: {}", e);
-            return;
-        }
-
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            if let Ok(meta) = fs::metadata(&pre_commit_path) {
-                let mut perms = meta.permissions();
-                perms.set_mode(0o755);
-                let _ = fs::set_permissions(&pre_commit_path, perms);
-            }
-        }
-        println!(
-            "  ✓ pre-commit hook installed: {}",
-            pre_commit_path.display()
         );
     }
 }
