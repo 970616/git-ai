@@ -1029,17 +1029,79 @@ fn install_git_prepush_hook(binary_path: &Path, dry_run: bool) {
     let hooks_dir = git_dir.join("hooks");
     let pre_push_path = hooks_dir.join("pre-push");
 
-    if pre_push_path.exists() {
-        match fs::read_to_string(&pre_push_path) {
-            Ok(content) if !content.contains("# git-ai pre-push") => {
-                eprintln!(
-                    "  ⚠ pre-push hook already exists (not git-ai), skipping: {}",
-                    pre_push_path.display()
-                );
+    let existing = if pre_push_path.exists() {
+        fs::read_to_string(&pre_push_path).unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    // 备用脚本名：用户已有自己的 pre-push 时，我们的上报脚本写到
+    // git-ai-pre-push（不覆盖用户文件），并在用户 pre-push 头部插入调用。
+    let alt_script_path = hooks_dir.join("git-ai-pre-push");
+    let call_line = "\"$(git rev-parse --git-common-dir)/hooks/git-ai-pre-push\" \"$@\" || true";
+
+    let is_git_ai =
+        existing.contains("# git-ai pre-push") || existing.contains("git-ai-pre-push");
+
+    if !existing.trim().is_empty() && !is_git_ai {
+        // ===== 用户已有自己的 pre-push → 合并（不覆盖）=====
+        let script = PRE_PUSH_HOOK_CONTENT
+            .replace("__GIT_AI_PATH__", &binary_path.to_string_lossy().replace('\\', "/"));
+        if dry_run {
+            println!(
+                "  Would merge pre-push hook into: {} (report script → {})",
+                pre_push_path.display(),
+                alt_script_path.display()
+            );
+            return;
+        }
+        if let Err(e) = fs::create_dir_all(&hooks_dir) {
+            eprintln!("  ⚠ Failed to create hooks dir: {}", e);
+            return;
+        }
+        // ① 上报脚本写到备用名（幂等：每次重写，内容最新）
+        if let Err(e) = fs::write(&alt_script_path, &script) {
+            eprintln!("  ⚠ Failed to write git-ai pre-push script: {}", e);
+            return;
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(meta) = fs::metadata(&alt_script_path) {
+                let mut perms = meta.permissions();
+                perms.set_mode(0o755);
+                let _ = fs::set_permissions(&alt_script_path, perms);
+            }
+        }
+        // ② 在用户 pre-push 的 shebang 行后插入调用（幂等：已含调用行则跳过）
+        if !existing.contains(&call_line) {
+            let insert = format!(
+                "\n# git-ai pre-push 上报（调用 .git/hooks/git-ai-pre-push，失败不阻塞）\n{}\n",
+                call_line
+            );
+            let merged = if let Some(first_newline) = existing.find('\n')
+                && existing.trim_start().starts_with("#!")
+            {
+                let (first_line, rest) = existing.split_at(first_newline + 1);
+                format!("{}{}{}", first_line, insert, rest)
+            } else {
+                format!("{}{}", insert, existing)
+            };
+            if let Err(e) = fs::write(&pre_push_path, &merged) {
+                eprintln!("  ⚠ Failed to write pre-push hook: {}", e);
                 return;
             }
-            _ => {}
+            println!(
+                "  ✓ pre-push hook merged into: {}",
+                pre_push_path.display()
+            );
+        } else {
+            println!(
+                "  ✓ pre-push hook already merged: {}",
+                pre_push_path.display()
+            );
         }
+        return;
     }
 
     if dry_run {
@@ -1088,20 +1150,49 @@ fn install_git_prepush_hook(binary_path: &Path, dry_run: bool) {
     };
     if is_husky_active(&git_dir_top) {
         let husky_prepush = git_dir_top.join(".husky").join("pre-push");
-        // 已存在且不是 git-ai 转发器 → 跳过（保护用户自己的 pre-push）
-        if husky_prepush.exists()
-            && let Ok(content) = fs::read_to_string(&husky_prepush)
-            && !content.contains("git-ai pre-push (husky forwarder)")
-        {
-            eprintln!(
-                "  ⚠ .husky/pre-push already exists (not git-ai), skipping: {}",
+
+        let existing = if husky_prepush.exists() {
+            fs::read_to_string(&husky_prepush).unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        // 幂等标记：已装完整转发器，或已合并过转发调用，都直接跳过。
+        let forwarder_marker = "git-ai pre-push (husky forwarder)";
+        let forwarder_line = "\"$(git rev-parse --git-common-dir)/hooks/pre-push\" \"$@\" || true";
+        if existing.contains(forwarder_marker) || existing.contains(forwarder_line) {
+            println!(
+                "  ✓ husky pre-push already configured: {}",
                 husky_prepush.display()
             );
             return;
         }
-        let forwarder = "#!/usr/bin/env sh\n# git-ai pre-push (husky forwarder)\n# Installed by `git ai install-hooks` — do not edit manually.\n# husky 接管 core.hooksPath 后，git 不跑 .git/hooks/pre-push，\n# 用这个转发器让 pre-push 在 husky 项目也能触发（stdin 自动透传）。\nexec \"$(git rev-parse --git-common-dir)/hooks/pre-push\" \"$@\"\n";
-        if let Err(e) = fs::write(&husky_prepush, forwarder) {
-            eprintln!("  ⚠ Failed to write .husky/pre-push forwarder: {}", e);
+
+        // 构造内容：
+        //  - 全新文件：写完整转发器（exec 透传，和以前一致）。
+        //  - 已有用户自己的 pre-push：在 shebang 行后插入转发调用（|| true 不阻塞），
+        //    保留用户原有命令——否则上报链路在 husky 项目里会静默断开。
+        let new_content = if existing.trim().is_empty() {
+            format!(
+                "#!/usr/bin/env sh\n# git-ai pre-push (husky forwarder)\n# Installed by `git ai install-hooks` — do not edit manually.\n# husky 接管 core.hooksPath 后，git 不跑 .git/hooks/pre-push，\n# 用这个转发器让 pre-push 在 husky 项目也能触发（stdin 自动透传）。\nexec \"$(git rev-parse --git-common-dir)/hooks/pre-push\" \"$@\"\n"
+            )
+        } else {
+            let insert = format!(
+                "\n# git-ai pre-push 上报（转发到 .git/hooks/pre-push，失败不阻塞）\n{}\n",
+                forwarder_line
+            );
+            if let Some(first_newline) = existing.find('\n')
+                && existing.trim_start().starts_with("#!")
+            {
+                let (first_line, rest) = existing.split_at(first_newline + 1);
+                format!("{}{}{}", first_line, insert, rest)
+            } else {
+                format!("{}{}", insert, existing)
+            }
+        };
+
+        if let Err(e) = fs::write(&husky_prepush, &new_content) {
+            eprintln!("  ⚠ Failed to write .husky/pre-push: {}", e);
             return;
         }
         #[cfg(unix)]
@@ -1239,14 +1330,54 @@ fn install_precommit_hook(binary_path: &Path, dry_run: bool) {
         let hooks_dir = git_common_dir.join("hooks");
         let pre_commit_path = hooks_dir.join("pre-commit");
 
-        // 若已存在非 git-ai 的 pre-commit，跳过（保护用户的 hook）
-        if pre_commit_path.exists()
-            && let Ok(content) = fs::read_to_string(&pre_commit_path)
-            && !content.contains("# git-ai pre-commit")
-            && !content.contains(marker)
-        {
-            eprintln!(
-                "  ⚠ pre-commit hook already exists (not git-ai), skipping: {}",
+        let existing = if pre_commit_path.exists() {
+            fs::read_to_string(&pre_commit_path).unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        let hook_cmd = format!("{} hook pre-commit", binary_path.to_string_lossy().replace('\\', "/"));
+        let is_git_ai = existing.contains("# git-ai pre-commit")
+            || existing.contains(marker)
+            || existing.contains(&hook_cmd);
+
+        // 用户已有自己的 pre-commit → 合并（不覆盖）：shebang 行后插入 git-ai 调用，
+        // 否则人工归属打点会静默断开（人工改动统计不到）。
+        if !existing.trim().is_empty() && !is_git_ai {
+            let insert = format!(
+                "\n# git-ai pre-commit（人工归属打点，失败不阻塞）\n{} || true\n",
+                hook_cmd
+            );
+            let merged = if let Some(first_newline) = existing.find('\n')
+                && existing.trim_start().starts_with("#!")
+            {
+                let (first_line, rest) = existing.split_at(first_newline + 1);
+                format!("{}{}{}", first_line, insert, rest)
+            } else {
+                format!("{}{}", insert, existing)
+            };
+            if dry_run {
+                println!(
+                    "  Would merge pre-commit hook into: {}",
+                    pre_commit_path.display()
+                );
+                return;
+            }
+            if let Err(e) = fs::write(&pre_commit_path, &merged) {
+                eprintln!("  ⚠ Failed to write pre-commit hook: {}", e);
+                return;
+            }
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(meta) = fs::metadata(&pre_commit_path) {
+                    let mut perms = meta.permissions();
+                    perms.set_mode(0o755);
+                    let _ = fs::set_permissions(&pre_commit_path, perms);
+                }
+            }
+            println!(
+                "  ✓ pre-commit hook merged into: {}",
                 pre_commit_path.display()
             );
             return;
