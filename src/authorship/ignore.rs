@@ -118,6 +118,7 @@ pub const DEFAULT_CHECKPOINT_EXCLUDE_PATTERNS: &[&str] = &[
     "**/.claude/**",
     "**/.kiro/**",
     "**/.qoder/**",
+    "**/openspec/**",
 ];
 
 /// checkpoint 排除目录模式：默认 Top23 + 环境变量 GITAI_CHECKPOINT_EXCLUDE
@@ -554,6 +555,7 @@ mod tests {
             "src/.claude/settings.json",          // AI 工具配置目录
             "src/.kiro/settings.json",
             "src/.qoder/settings.json",
+            "src/openspec/change.md",             // spec 驱动开发目录
         ] {
             assert!(
                 should_ignore_file_with_matcher(path, &matcher),
