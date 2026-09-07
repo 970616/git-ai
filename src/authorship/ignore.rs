@@ -111,7 +111,8 @@ pub const DEFAULT_CHECKPOINT_EXCLUDE_PATTERNS: &[&str] = &[
     "**/protocol/**",
     "src/third_party/**",
     "**/Pods/**",
-    "*/__tests__/**",
+    "**/__tests__/**",
+    "**/tests/**",
     "**/dev-tools/**",
     "src/vendor/**",
     // AI 工具配置目录：不参与归属统计（人工/AI 都不计）
@@ -119,10 +120,17 @@ pub const DEFAULT_CHECKPOINT_EXCLUDE_PATTERNS: &[&str] = &[
     "**/.kiro/**",
     "**/.qoder/**",
     "**/openspec/**",
+    // 包管理器/依赖锁文件：生成物，不参与归属统计（人工/AI 都不计）
+    "**/yarn.lock",
+    "**/package-lock.json",
+    "**/pnpm-lock.yaml",
+    "**/bun.lockb",
+    "**/go.sum",
+    "**/poetry.lock",
 ];
 
-/// checkpoint 排除目录模式：默认 Top23 + 环境变量 GITAI_CHECKPOINT_EXCLUDE
-/// （逗号分隔）追加。追加项与默认项同名时去重。
+/// checkpoint 排除目录模式：默认 Top20 + AI 工具配置/锁文件等补充；
+/// 环境变量 GITAI_CHECKPOINT_EXCLUDE（逗号分隔）追加。追加项与默认项同名时去重。
 pub fn checkpoint_exclude_patterns() -> Vec<String> {
     let mut patterns: Vec<String> = DEFAULT_CHECKPOINT_EXCLUDE_PATTERNS
         .iter()
@@ -539,6 +547,7 @@ mod tests {
             "src/dist/x.js",
             "src/public/x.js",
             "src/test/x.js",                    // 仓库根 src/test/
+            "tests/x.spec.ts",                  // 任意层级 tests(新)
             "src/server/x.js",
             "src/logs/x.js",
             "src/vendor/x.js",
@@ -548,7 +557,8 @@ mod tests {
             "src/3rd/x.c",
             "src/protocol/x.c",
             "src/pkg/x.go",
-            "src/__tests__/x.ts",               // */__tests__/ 一层子目录
+            "src/__tests__/x.ts",               // __tests__ 任意层级
+            "src/utils/__tests__/dateTimeHelper.test.js",
             "src/dev-tools/x.js",
             "src/main/java/com/hisense/hitv/api/x.java",
             "src/main/java/com/hisense/hitv/api/deep/y.java",
@@ -556,6 +566,9 @@ mod tests {
             "src/.kiro/settings.json",
             "src/.qoder/settings.json",
             "src/openspec/change.md",             // spec 驱动开发目录
+            "yarn.lock",                          // 锁文件(生成物)
+            "src/package-lock.json",
+            "x/pnpm-lock.yaml",
         ] {
             assert!(
                 should_ignore_file_with_matcher(path, &matcher),
