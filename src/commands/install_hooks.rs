@@ -271,7 +271,7 @@ fn configure_daemon_trace2(dry_run: bool) -> Result<(), GitAiError> {
             let wrapper = home.join(".git-ai").join("bin").join("git-ai");
             if wrapper.exists() {
                 daemon_config =
-                    DaemonConfig::from_home(std::path::Path::new("/dev/shm/git-ai-daemon"))?;
+                    DaemonConfig::from_home(std::path::Path::new("/dev/shm/git-ai-daemon"));
             }
         }
     }
