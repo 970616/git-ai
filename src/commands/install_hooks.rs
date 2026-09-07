@@ -258,7 +258,23 @@ fn configure_daemon_trace2(dry_run: bool) -> Result<(), GitAiError> {
 
     ensure_global_git_config_dirs()?;
 
-    let daemon_config = DaemonConfig::from_env_or_default_paths()?;
+    // wrapper 部署(企业沙箱)检测:~/.git-ai/bin/git-ai 存在时,说明部署形态是
+    // "daemon 走 GIT_AI_DAEMON_HOME(默认 /dev/shm/git-ai-daemon)"。若这里无
+    // 环境变量(如 libexec 被直调),按默认路径写全局 trace2 配置会与 /dev/shm
+    // 上的 daemon 错位,导致提交归属统计失效。无 env 时跟随 wrapper 默认路径。
+    let has_daemon_home = std::env::var("GIT_AI_DAEMON_HOME")
+        .map(|v| !v.trim().is_empty())
+        .unwrap_or(false);
+    let mut daemon_config = DaemonConfig::from_env_or_default_paths()?;
+    if !has_daemon_home {
+        if let Some(home) = dirs::home_dir() {
+            let wrapper = home.join(".git-ai").join("bin").join("git-ai");
+            if wrapper.exists() {
+                daemon_config =
+                    DaemonConfig::from_home(std::path::Path::new("/dev/shm/git-ai-daemon"))?;
+            }
+        }
+    }
     let event_target = daemon_config.trace2_event_target();
 
     if dry_run {
@@ -1031,7 +1047,18 @@ fn install_clone_template(dry_run: bool) -> Result<(), GitAiError> {
     fs::create_dir_all(&template_hooks)?;
 
     let bin = crate::mdm::utils::get_current_binary_path()?;
-    let bin_str = bin.to_string_lossy().replace('\\', "/");
+
+    // 沙箱部署时 ~/.git-ai/bin/git-ai 是带 GIT_AI_DAEMON_HOME 注入的 wrapper:
+    // post-checkout 由 git/平台进程触发,环境通常没有该变量;若直跑 libexec,
+    // install-hooks 会按默认路径(~/.git-ai/internal)重写全局 trace2 配置,
+    // 与 /dev/shm 上的 daemon 错位,导致提交归属统计失效。
+    // 优先走 wrapper(它自己注入环境变量);无 wrapper(官方/Windows)保持原行为。
+    let wrapper = home.join(".git-ai").join("bin").join("git-ai");
+    let bin_str = if wrapper.exists() {
+        wrapper.to_string_lossy().replace('\\', "/")
+    } else {
+        bin.to_string_lossy().replace('\\', "/")
+    };
 
     let post_checkout = format!(
         "#!/usr/bin/env sh\n\

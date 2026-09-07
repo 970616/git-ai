@@ -114,9 +114,13 @@ pub const DEFAULT_CHECKPOINT_EXCLUDE_PATTERNS: &[&str] = &[
     "*/__tests__/**",
     "**/dev-tools/**",
     "src/vendor/**",
+    // AI 工具配置目录：不参与归属统计（人工/AI 都不计）
+    "**/.claude/**",
+    "**/.kiro/**",
+    "**/.qoder/**",
 ];
 
-/// checkpoint 排除目录模式：默认 Top20 + 环境变量 GITAI_CHECKPOINT_EXCLUDE
+/// checkpoint 排除目录模式：默认 Top23 + 环境变量 GITAI_CHECKPOINT_EXCLUDE
 /// （逗号分隔）追加。追加项与默认项同名时去重。
 pub fn checkpoint_exclude_patterns() -> Vec<String> {
     let mut patterns: Vec<String> = DEFAULT_CHECKPOINT_EXCLUDE_PATTERNS
@@ -547,6 +551,9 @@ mod tests {
             "src/dev-tools/x.js",
             "src/main/java/com/hisense/hitv/api/x.java",
             "src/main/java/com/hisense/hitv/api/deep/y.java",
+            "src/.claude/settings.json",          // AI 工具配置目录
+            "src/.kiro/settings.json",
+            "src/.qoder/settings.json",
         ] {
             assert!(
                 should_ignore_file_with_matcher(path, &matcher),
