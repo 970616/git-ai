@@ -369,6 +369,10 @@ pub fn run(args: &[String]) -> Result<HashMap<String, String>, GitAiError> {
     // Install post-rewrite hook: carry AI notes across rebase/amend
     install_post_rewrite_hook(&binary_path, options.dry_run);
 
+    // Guard the clone-template post-checkout: never re-run install-hooks
+    // (which restarts the daemon) on every branch checkout.
+    install_post_checkout_guard(&binary_path, options.dry_run);
+
     // Install pre-commit hook (husky if active, else standard .git/hooks/pre-commit)
     install_precommit_hook(&binary_path, options.dry_run);
 
@@ -1063,12 +1067,16 @@ fn install_clone_template(dry_run: bool) -> Result<(), GitAiError> {
         bin.to_string_lossy().replace('\\', "/")
     };
 
+    // 只在"尚未安装"时执行 install-hooks：install-hooks 内部会 restart_daemon，
+    // 若每次分支切换都全量重装，daemon 的内存状态（如 stash 栈）会被清空，
+    // 导致 stash 跨分支 pop 解析不到被 pop 的对象、归属恢复被跳过。
     let post_checkout = format!(
         "#!/usr/bin/env sh\n\
          # git-ai auto-install on clone (first checkout)\n\
          if [ \"$3\" = \"1\" ]; then\n\
          repo_root=$(git rev-parse --show-toplevel 2>/dev/null)\n\
-         [ -n \"$repo_root\" ] && (cd \"$repo_root\" && {} install-hooks >/dev/null 2>&1) || true\n\
+         git_dir=$(git rev-parse --git-common-dir 2>/dev/null)\n\
+         [ -n \"$repo_root\" ] && [ -n \"$git_dir\" ] && ! grep -q \"git-ai\" \"$git_dir/hooks/pre-push\" 2>/dev/null && (cd \"$repo_root\" && {} install-hooks >/dev/null 2>&1) || true\n\
          fi\n",
         bin_str
     );
@@ -1197,6 +1205,80 @@ fn install_post_rewrite_hook(_binary_path: &Path, dry_run: bool) {
             perms.set_mode(0o755);
             let _ = fs::set_permissions(&post_rewrite_path, perms);
         }
+    }
+}
+
+/// 修复历史 clone 模板遗留的 post-checkout：旧模板在【每次分支 checkout】都无条件
+/// 执行 install-hooks。而 install-hooks 会 restart_daemon，daemon 内存状态（stash 栈等）
+/// 随之清空——之后 `git stash pop` 无法解析被 pop 的对象，跨分支 stash 的归属恢复被跳过。
+/// 这里把已存在的 post-checkout 中"无条件的 install-hooks 行"替换为"未安装才安装"的
+/// 条件版（按行替换，保留文件里其他工具的段落；幂等，重复执行不再改写）。
+fn install_post_checkout_guard(binary_path: &Path, dry_run: bool) {
+    use std::fs;
+
+    let git_dir = match std::process::Command::new("git")
+        .args(["rev-parse", "--git-common-dir"])
+        .output()
+    {
+        Ok(out) if out.status.success() => {
+            PathBuf::from(String::from_utf8_lossy(&out.stdout).trim().to_string())
+        }
+        _ => return,
+    };
+
+    let hooks_dir = git_dir.join("hooks");
+    let post_checkout_path = hooks_dir.join("post-checkout");
+
+    let Ok(content) = fs::read_to_string(&post_checkout_path) else {
+        return;
+    };
+    // 只处理 git-ai 模板生成的段；用户/其他工具自装的 post-checkout 不碰。
+    if !content.contains("git-ai auto-install") {
+        return;
+    }
+    // 已是条件版（含 pre-push 探测）则跳过——保证幂等。
+    if content.contains("hooks/pre-push") {
+        return;
+    }
+
+    if dry_run {
+        println!(
+            "  Would guard post-checkout auto-install: {}",
+            post_checkout_path.display()
+        );
+        return;
+    }
+
+    // 与模板保持一致：沙箱里优先走 wrapper（自带 daemon 环境变量注入）。
+    let bin_str = {
+        let wrapper = dirs::home_dir()
+            .map(|home| home.join(".git-ai").join("bin").join("git-ai"))
+            .filter(|path| path.exists());
+        match wrapper {
+            Some(path) => path.to_string_lossy().replace('\\', "/"),
+            None => binary_path.to_string_lossy().replace('\\', "/"),
+        }
+    };
+
+    let mut out = String::with_capacity(content.len() + 160);
+    let mut replaced = false;
+    for line in content.lines() {
+        if !replaced && line.contains("install-hooks >/dev/null") {
+            out.push_str(&format!(
+                "git_dir=$(git rev-parse --git-common-dir 2>/dev/null)\n\
+                 [ -n \"$repo_root\" ] && [ -n \"$git_dir\" ] && ! grep -q \"git-ai\" \"$git_dir/hooks/pre-push\" 2>/dev/null && (cd \"$repo_root\" && {} install-hooks >/dev/null 2>&1) || true",
+                bin_str
+            ));
+            out.push('\n');
+            replaced = true;
+        } else {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+
+    if replaced && fs::write(&post_checkout_path, out).is_ok() {
+        log_hook_install("post-checkout(guarded)", &post_checkout_path);
     }
 }
 

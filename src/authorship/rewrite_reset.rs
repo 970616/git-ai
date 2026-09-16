@@ -179,10 +179,8 @@ pub fn reconstruct_working_log_after_backward_reset(
     if repo.storage.has_working_log(old_tip) {
         if let Ok(old_log) = repo.storage.working_log_for_base_commit(old_tip) {
             let old_initial = old_log.read_initial_attributions();
-            let old_checkpoints_len = old_log
-                .read_all_checkpoints()
-                .map(|checkpoints| checkpoints.len())
-                .unwrap_or(0);
+            let old_checkpoints = old_log.read_all_checkpoints().unwrap_or_default();
+            let old_checkpoints_len = old_checkpoints.len();
             tracing::info!(
                 "reset reconstruct: old_tip working log {} has {} initial files, {} checkpoints",
                 old_tip,
@@ -227,6 +225,33 @@ pub fn reconstruct_working_log_after_backward_reset(
                     // best-effort：合并失败不应破坏上面的重建结果
                     let _ = working_log.write_initial(target);
                 }
+            }
+
+            // 迁移 old_tip 的编辑打点（checkpoints）：reset --mixed 不清工作区，
+            // 未提交编辑的打点仍挂在旧 base 目录下。不迁移的话，reset 后再编辑
+            // 并提交时这些行无法归属（实测会被记为 human）；迁移后 note 恢复为 AI。
+            if !old_checkpoints.is_empty() {
+                let dst_blobs = working_log.dir.join("blobs");
+                let _ = std::fs::create_dir_all(&dst_blobs);
+                for checkpoint in &old_checkpoints {
+                    for entry in &checkpoint.entries {
+                        if entry.blob_sha.is_empty() {
+                            continue;
+                        }
+                        let src = old_log.dir.join("blobs").join(&entry.blob_sha);
+                        let dst = dst_blobs.join(&entry.blob_sha);
+                        if src.exists() && !dst.exists() {
+                            let _ = std::fs::copy(&src, &dst);
+                        }
+                    }
+                }
+                let mut merged = working_log.read_all_checkpoints().unwrap_or_default();
+                merged.extend(old_checkpoints);
+                let _ = working_log.write_all_checkpoints(&merged);
+                tracing::info!(
+                    "reset reconstruct: migrated checkpoints from old_tip working log {}",
+                    old_tip
+                );
             }
         } else {
             tracing::warn!(
