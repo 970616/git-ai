@@ -507,10 +507,14 @@ where
     write_note(repo, &commit_sha, &authorship_note_str)?;
 
     // note 生成记录（排查"note 延迟/缺失"用）
+    let (note_ai_add, note_human_add) = stats
+        .as_ref()
+        .map(|s| (s.ai_additions, s.human_additions))
+        .unwrap_or((0, 0));
     tracing::info!(
         commit = %commit_sha,
-        ai_additions = stats.ai_additions,
-        human_additions = stats.human_additions,
+        ai_additions = note_ai_add,
+        human_additions = note_human_add,
         "note written"
     );
 
