@@ -386,20 +386,22 @@ where
     authorship_log = transform(authorship_log)?;
     authorship_log.metadata.base_commit_sha = commit_sha.clone();
 
+    // parent→commit 的 committed hunks 计算一次，recovery 与 human 兜底共用。
+    let committed_hunks_for_fill = recovery_committed_hunks(
+        repo,
+        &parent_sha,
+        &commit_sha,
+        context.precomputed_parent_diff,
+    )?;
+
     if options.recover_attribution {
-        let recovery_hunks = recovery_committed_hunks(
-            repo,
-            &parent_sha,
-            &commit_sha,
-            context.precomputed_parent_diff,
-        )?;
         crate::authorship::attribution_recovery::recover_attribution(
             repo,
             &parent_sha,
             &commit_sha,
             &human_author,
             &mut authorship_log,
-            &recovery_hunks,
+            &committed_hunks_for_fill,
             AttributionRecoveryContext {
                 file_timestamps: context.recovery_file_timestamps,
                 before_external_recovery: context.before_external_recovery,
@@ -407,6 +409,15 @@ where
         )?;
         authorship_log.metadata.base_commit_sha = commit_sha.clone();
     }
+
+    // 兜底：本次提交引入、但仍无归属的行 → 记为该提交的 human author。
+    // 覆盖无打点的手动编辑（终端操作、外部工具等），使行统计闭合成
+    // "AI 或 human"，不再留下 unknown。
+    fill_unattributed_lines_as_human(
+        &mut authorship_log,
+        &committed_hunks_for_fill,
+        &human_author,
+    );
 
     // Long-lived daemon processes should read a fresh config snapshot.
     // Always use Config::fresh() to support runtime config updates
@@ -653,6 +664,75 @@ fn recovery_committed_hunks(
             )
         })
         .collect())
+}
+
+/// 兜底：把本次提交引入（committed hunks 内）、但仍无任何归属的行记为该提交的
+/// human author（h_ 条目）。手动编辑（终端、外部工具）没有 AI 打点，原本会留作
+/// unknown；该兜底让统计口径闭合成"行 = AI 或 human"。
+fn fill_unattributed_lines_as_human(
+    authorship_log: &mut crate::authorship::authorship_log_serialization::AuthorshipLog,
+    committed_hunks: &HashMap<String, Vec<crate::authorship::authorship_log::LineRange>>,
+    human_author: &str,
+) {
+    if committed_hunks.is_empty() {
+        return;
+    }
+
+    let mut attributed_lines: HashMap<&str, std::collections::HashSet<u32>> = HashMap::new();
+    for file_attestation in &authorship_log.attestations {
+        let lines = attributed_lines
+            .entry(file_attestation.file_path.as_str())
+            .or_default();
+        for entry in &file_attestation.entries {
+            for range in &entry.line_ranges {
+                for line in range.expand() {
+                    lines.insert(line);
+                }
+            }
+        }
+    }
+
+    let mut unattributed: HashMap<String, Vec<u32>> = HashMap::new();
+    for (file_path, line_ranges) in committed_hunks {
+        let existing = attributed_lines.get(file_path.as_str());
+        let mut lines: Vec<u32> = Vec::new();
+        for range in line_ranges {
+            for line in range.expand() {
+                if existing.is_none_or(|set| !set.contains(&line)) {
+                    lines.push(line);
+                }
+            }
+        }
+        if !lines.is_empty() {
+            lines.sort_unstable();
+            lines.dedup();
+            unattributed.insert(file_path.clone(), lines);
+        }
+    }
+
+    if unattributed.is_empty() {
+        return;
+    }
+
+    let human_hash =
+        crate::authorship::authorship_log_serialization::generate_human_short_hash(human_author);
+    authorship_log
+        .metadata
+        .humans
+        .entry(human_hash.clone())
+        .or_insert_with(|| crate::authorship::authorship_log::HumanRecord {
+            author: human_author.to_string(),
+        });
+
+    for (file_path, lines) in unattributed {
+        let file_attestation = authorship_log.get_or_create_file(&file_path);
+        file_attestation.add_entry(
+            crate::authorship::authorship_log_serialization::AttestationEntry::new(
+                human_hash.clone(),
+                crate::authorship::authorship_log::LineRange::compress_lines(&lines),
+            ),
+        );
+    }
 }
 
 /// Amend-specific post-commit that merges blame-sourced attributions from the
