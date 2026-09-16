@@ -233,15 +233,13 @@ pub fn reconstruct_working_log_after_backward_reset(
             if !old_checkpoints.is_empty() {
                 let dst_blobs = working_log.dir.join("blobs");
                 let _ = std::fs::create_dir_all(&dst_blobs);
-                for checkpoint in &old_checkpoints {
-                    for entry in &checkpoint.entries {
-                        if entry.blob_sha.is_empty() {
-                            continue;
-                        }
-                        let src = old_log.dir.join("blobs").join(&entry.blob_sha);
-                        let dst = dst_blobs.join(&entry.blob_sha);
-                        if src.exists() && !dst.exists() {
-                            let _ = std::fs::copy(&src, &dst);
+                // 整个 blobs 目录都拷：checkpoint 除 entries[].blob_sha 外，
+                // diff 等字段同样引用 blob，缺任何一个都可能让后续回放静默降级。
+                if let Ok(dir_entries) = std::fs::read_dir(old_log.dir.join("blobs")) {
+                    for dir_entry in dir_entries.flatten() {
+                        let dst = dst_blobs.join(dir_entry.file_name());
+                        if !dst.exists() {
+                            let _ = std::fs::copy(dir_entry.path(), &dst);
                         }
                     }
                 }
