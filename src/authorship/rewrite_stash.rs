@@ -86,6 +86,10 @@ fn clean_working_log_for_stash(
     pathspecs: &[String],
 ) -> Result<(), GitAiError> {
     if !repo.storage.has_working_log(head_sha) {
+        tracing::info!(
+            "stash clean: no working log for head {}; nothing to clean",
+            head_sha
+        );
         return Ok(());
     }
 
@@ -132,6 +136,12 @@ pub fn handle_stash_create(
     head_sha: &str,
     pathspecs: Vec<String>,
 ) -> Result<(), GitAiError> {
+    tracing::info!(
+        "stash create: stash={} head={} pathspecs={:?}",
+        stash_sha,
+        head_sha,
+        pathspecs
+    );
     cleanup_legacy_stashes_dir(repo);
 
     let metadata = StashMetadata {
@@ -164,11 +174,22 @@ pub fn handle_stash_pop_or_apply_with_head(
     is_pop: bool,
     target_head: Option<&str>,
 ) -> Result<(), GitAiError> {
+    tracing::info!(
+        "stash pop/apply: stash={} is_pop={} target_head={:?}",
+        stash_sha,
+        is_pop,
+        target_head
+    );
     cleanup_legacy_stashes_dir(repo);
 
     let metadata_path = stash_metadata_path(repo, stash_sha);
 
     if !metadata_path.exists() {
+        tracing::warn!(
+            "stash pop/apply: no metadata entry for stash {} (path {}); note restore skipped",
+            stash_sha,
+            metadata_path.display()
+        );
         return Ok(());
     }
 
@@ -216,6 +237,11 @@ fn save_stash_attributions(
     pathspecs: &[String],
 ) -> Result<(), GitAiError> {
     if !repo.storage.has_working_log(head_sha) {
+        tracing::warn!(
+            "stash save: no working log for head {} (stash={}); nothing packed",
+            head_sha,
+            stash_sha
+        );
         return Ok(());
     }
 
@@ -258,6 +284,11 @@ fn compact_stash_attributions_from_working_log(
     let initial = va.to_initial_working_log_only();
 
     if initial.files.is_empty() {
+        tracing::warn!(
+            "stash save: working log {} produced no file attributions (stash={}); nothing packed",
+            working_log_base_commit,
+            stash_sha
+        );
         return Ok(());
     }
 
@@ -440,11 +471,19 @@ fn restore_stash_attributions(
 ) -> Result<(), GitAiError> {
     let stash_log = working_log_for_dir(repo, stash_entry_dir(repo, stash_sha), current_head);
     if !stash_log.initial_file.exists() {
+        tracing::warn!(
+            "stash restore: no packed attributions for stash {}; nothing to restore",
+            stash_sha
+        );
         return Ok(());
     }
 
     let initial = stash_log.read_initial_attributions();
     if initial.files.is_empty() {
+        tracing::warn!(
+            "stash restore: packed attributions empty for stash {}; nothing to restore",
+            stash_sha
+        );
         return Ok(());
     }
 
@@ -462,11 +501,19 @@ fn restore_stash_attributions_with_shift(
 ) -> Result<(), GitAiError> {
     let stash_log = working_log_for_dir(repo, stash_entry_dir(repo, stash_sha), current_head);
     if !stash_log.initial_file.exists() {
+        tracing::warn!(
+            "stash restore (shift): no packed attributions for stash {}; nothing to restore",
+            stash_sha
+        );
         return Ok(());
     }
 
     let initial = stash_log.read_initial_attributions();
     if initial.files.is_empty() {
+        tracing::warn!(
+            "stash restore (shift): packed attributions empty for stash {}; nothing to restore",
+            stash_sha
+        );
         return Ok(());
     }
 

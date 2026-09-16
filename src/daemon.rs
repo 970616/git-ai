@@ -5399,6 +5399,20 @@ impl ActorDaemonCoordinator {
                     }
                     crate::daemon::domain::SemanticEvent::StashOperation { kind, head } => {
                         let repo = find_repository_in_path(&worktree)?;
+                        let stash_ref_changes: Vec<String> = cmd
+                            .ref_changes
+                            .iter()
+                            .filter(|rc| rc.reference == "refs/stash")
+                            .map(|rc| format!("{}->{}", rc.old, rc.new))
+                            .collect();
+                        tracing::info!(
+                            "stash event: kind={:?} head={:?} primary={:?} stash_target_oid={:?} refs/stash={:?}",
+                            kind,
+                            head,
+                            cmd.primary_command,
+                            cmd.stash_target_oid,
+                            stash_ref_changes
+                        );
                         match kind {
                             crate::daemon::domain::StashOpKind::Push
                             | crate::daemon::domain::StashOpKind::Unknown => {
@@ -5418,16 +5432,37 @@ impl ActorDaemonCoordinator {
                                         stash_base_head(&repo, stash_sha).or_else(|| head.clone());
                                     if let Some(head_sha) = push_head.as_deref() {
                                         let pathspecs = Self::stash_pathspecs_from_command(cmd);
+                                        tracing::info!(
+                                            "stash push: stash={} head={} pathspecs={:?}",
+                                            stash_sha,
+                                            head_sha,
+                                            pathspecs
+                                        );
                                         crate::authorship::rewrite_stash::handle_stash_create(
                                             &repo, stash_sha, head_sha, pathspecs,
                                         )?;
+                                    } else {
+                                        tracing::warn!(
+                                            "stash push: no head resolved for stash {}; attribution snapshot skipped",
+                                            stash_sha
+                                        );
                                     }
+                                } else {
+                                    tracing::warn!(
+                                        "stash push: unresolved stash sha; attribution snapshot skipped"
+                                    );
                                 }
                             }
                             crate::daemon::domain::StashOpKind::Pop => {
                                 if let Some(stash_sha) = resolve_stash_sha(cmd) {
                                     let base_head = stash_base_head(&repo, stash_sha);
                                     let target_head = head.as_deref().or(base_head.as_deref());
+                                    tracing::info!(
+                                        "stash pop: stash={} base_head={:?} target_head={:?}",
+                                        stash_sha,
+                                        base_head,
+                                        target_head
+                                    );
                                     crate::authorship::rewrite_stash::handle_stash_pop_or_apply_with_head(
                                         &repo, stash_sha, true, target_head,
                                     )?;
@@ -5453,9 +5488,20 @@ impl ActorDaemonCoordinator {
                                         .as_deref()
                                         .or(head.as_deref())
                                         .or(base_head.as_deref());
+                                    tracing::info!(
+                                        "stash apply/branch ({:?}): stash={} base_head={:?} target_head={:?}",
+                                        kind,
+                                        stash_sha,
+                                        base_head,
+                                        target_head
+                                    );
                                     crate::authorship::rewrite_stash::handle_stash_pop_or_apply_with_head(
                                         &repo, stash_sha, false, target_head,
                                     )?;
+                                } else {
+                                    tracing::warn!(
+                                        "stash apply/branch: unresolved stash sha; note restore skipped"
+                                    );
                                 }
                             }
                             crate::daemon::domain::StashOpKind::Drop => {
@@ -5652,16 +5698,33 @@ impl ActorDaemonCoordinator {
                         new_head,
                     } if !old_head.is_empty() && !new_head.is_empty() && old_head != new_head => {
                         let repo = find_repository_in_path(&worktree)?;
+                        tracing::info!(
+                            "reset event: kind={:?} old_head={} new_head={}",
+                            kind,
+                            old_head,
+                            new_head
+                        );
                         match kind {
                             crate::daemon::domain::ResetKind::Hard => {
+                                tracing::info!("reset (hard): deleting working log for {}", old_head);
                                 repo.storage.delete_working_log_for_base_commit(old_head)?;
                             }
                             _ => {
                                 if is_ancestor_commit(&repo, new_head, old_head) {
+                                    tracing::info!(
+                                        "reset (backward): reconstructing working log {} -> {}",
+                                        old_head,
+                                        new_head
+                                    );
                                     crate::authorship::rewrite_reset::reconstruct_working_log_after_backward_reset(
                                         &repo, old_head, new_head,
                                     )?;
                                 } else if !is_ancestor_commit(&repo, old_head, new_head) {
+                                    tracing::info!(
+                                        "reset (non-fast-forward): migrating {} -> {}",
+                                        old_head,
+                                        new_head
+                                    );
                                     let outcome =
                                         crate::authorship::rewrite::handle_rewrite_event_with_metrics(
                                         &repo,
@@ -5675,9 +5738,27 @@ impl ActorDaemonCoordinator {
                                         &repo,
                                         outcome.metric_commits,
                                     );
+                                } else {
+                                    tracing::info!(
+                                        "reset (forward): {} -> {}; nothing to reconstruct",
+                                        old_head,
+                                        new_head
+                                    );
                                 }
                             }
                         }
+                    }
+                    crate::daemon::domain::SemanticEvent::Reset {
+                        kind,
+                        old_head,
+                        new_head,
+                    } => {
+                        tracing::warn!(
+                            "reset event skipped: kind={:?} old_head={:?} new_head={:?} (empty or unchanged head)",
+                            kind,
+                            old_head,
+                            new_head
+                        );
                     }
                     _ => {}
                 }

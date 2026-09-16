@@ -35,11 +35,20 @@ impl CommandAnalyzer for HistoryAnalyzer {
             }
             "reset" => {
                 if let Some((old_head, new_head)) = head_change(cmd, state.refs) {
+                    tracing::info!(
+                        "reset analyze: old_head={} new_head={}",
+                        old_head,
+                        new_head
+                    );
                     events.push(SemanticEvent::Reset {
                         kind: infer_reset_kind(&args),
                         old_head,
                         new_head,
                     });
+                } else {
+                    tracing::warn!(
+                        "reset analyze: no usable head change in ref_changes; reset event skipped"
+                    );
                 }
             }
             "rebase" => {

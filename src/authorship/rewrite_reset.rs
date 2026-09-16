@@ -21,6 +21,11 @@ pub fn reconstruct_working_log_after_backward_reset(
     // List all commits being "un-done" (between new_tip exclusive and old_tip inclusive)
     let commits = list_commits_in_range(repo, new_tip, old_tip);
     if commits.is_empty() {
+        tracing::warn!(
+            "reset reconstruct: no commits in range {}..{}; nothing to rebuild",
+            new_tip,
+            old_tip
+        );
         return Ok(());
     }
 
@@ -38,8 +43,22 @@ pub fn reconstruct_working_log_after_backward_reset(
     }
 
     if commit_logs.is_empty() {
+        tracing::warn!(
+            "reset reconstruct: no usable authorship notes for {} commits ({}..{}); nothing to rebuild",
+            commits.len(),
+            new_tip,
+            old_tip
+        );
         return Ok(());
     }
+
+    tracing::info!(
+        "reset reconstruct: {} commits in range, {} with usable notes ({}..{})",
+        commits.len(),
+        commit_logs.len(),
+        new_tip,
+        old_tip
+    );
 
     // Compute diffs from each intermediate commit to old_tip so we can shift
     // line numbers into old_tip's coordinate space. Commits that ARE old_tip
@@ -89,6 +108,10 @@ pub fn reconstruct_working_log_after_backward_reset(
     }
 
     if file_attributions.is_empty() {
+        tracing::warn!(
+            "reset reconstruct: notes had no file attributions ({} commits); nothing to rebuild",
+            commit_logs.len()
+        );
         return Ok(());
     }
 
@@ -120,6 +143,11 @@ pub fn reconstruct_working_log_after_backward_reset(
 
     // If no files differ from the target (reset --hard), nothing to reconstruct
     if file_blobs.is_empty() {
+        tracing::warn!(
+            "reset reconstruct: no files differ between {} and {} (or old_tip content unreadable); nothing to rebuild",
+            old_tip,
+            new_tip
+        );
         let _ = repo.storage.delete_working_log_for_base_commit(old_tip);
         return Ok(());
     }
@@ -132,6 +160,8 @@ pub fn reconstruct_working_log_after_backward_reset(
     // written between the time the reset happened and when the daemon processes
     // this event. Clearing checkpoints.jsonl would lose that data.
     let working_log = repo.storage.working_log_for_base_commit(new_tip)?;
+
+    let rebuilt_file_count = file_blobs.len();
 
     working_log.write_initial_attributions_with_contents(
         file_attributions,
@@ -149,9 +179,19 @@ pub fn reconstruct_working_log_after_backward_reset(
     if repo.storage.has_working_log(old_tip) {
         if let Ok(old_log) = repo.storage.working_log_for_base_commit(old_tip) {
             let old_initial = old_log.read_initial_attributions();
+            let old_checkpoints_len = old_log
+                .read_all_checkpoints()
+                .map(|checkpoints| checkpoints.len())
+                .unwrap_or(0);
+            tracing::info!(
+                "reset reconstruct: old_tip working log {} has {} initial files, {} checkpoints",
+                old_tip,
+                old_initial.files.len(),
+                old_checkpoints_len
+            );
             if !old_initial.files.is_empty() {
                 let mut target = working_log.read_initial_attributions();
-                let mut added = false;
+                let mut added = 0usize;
                 let dst_blobs = working_log.dir.join("blobs");
                 let _ = std::fs::create_dir_all(&dst_blobs);
                 for (path, attrs) in old_initial.files.iter() {
@@ -167,7 +207,7 @@ pub fn reconstruct_working_log_after_backward_reset(
                         }
                         target.file_blobs.insert(path.clone(), blob_sha.clone());
                     }
-                    added = true;
+                    added += 1;
                 }
                 for (k, v) in old_initial.prompts.iter() {
                     target.prompts.entry(k.clone()).or_insert_with(|| v.clone());
@@ -178,13 +218,36 @@ pub fn reconstruct_working_log_after_backward_reset(
                 for (k, v) in old_initial.sessions.iter() {
                     target.sessions.entry(k.clone()).or_insert_with(|| v.clone());
                 }
-                if added {
+                tracing::info!(
+                    "reset reconstruct: merged {} missing files from old_tip working log {}",
+                    added,
+                    old_tip
+                );
+                if added > 0 {
                     // best-effort：合并失败不应破坏上面的重建结果
                     let _ = working_log.write_initial(target);
                 }
             }
+        } else {
+            tracing::warn!(
+                "reset reconstruct: old_tip working log {} unreadable",
+                old_tip
+            );
         }
+    } else {
+        tracing::info!(
+            "reset reconstruct: no working log dir for old_tip {}",
+            old_tip
+        );
     }
+
+    tracing::info!(
+        "reset reconstruct: rebuild complete for {} (from {}: {} files, {} commits with notes)",
+        new_tip,
+        old_tip,
+        rebuilt_file_count,
+        commit_logs.len()
+    );
 
     // Delete old working log if it exists
     let _ = repo.storage.delete_working_log_for_base_commit(old_tip);

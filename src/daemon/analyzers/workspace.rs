@@ -20,10 +20,15 @@ impl CommandAnalyzer for WorkspaceAnalyzer {
         match name {
             "stash" => {
                 let stash_args = stash_command_args(cmd);
-                events.push(SemanticEvent::StashOperation {
-                    kind: infer_stash_kind(&stash_args),
-                    head: current_head_for_workspace_command(cmd, state.refs),
-                });
+                let kind = infer_stash_kind(&stash_args);
+                let head = current_head_for_workspace_command(cmd, state.refs);
+                tracing::info!(
+                    "stash analyze: kind={:?} head={:?} stash_target_oid={:?}",
+                    kind,
+                    head,
+                    cmd.stash_target_oid
+                );
+                events.push(SemanticEvent::StashOperation { kind, head });
             }
             "checkout" => {
                 if is_path_checkout(&args) {
