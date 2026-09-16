@@ -484,6 +484,37 @@ where
                 &commit_sha,
             )?;
 
+            // 口径补漏：stats 的 diff（不带 --ignore-cr-at-eol）会把"行尾换行重写"
+            // （no newline at end of file 的变化）计为变更行，而归属侧的
+            // diff_added_lines（带 --ignore-cr-at-eol）不计——这类行会掉进
+            // 两个口径的缝隙，在 stats 中记为 unknown。这里用 stats 同口径的
+            // added 行再兜底一次 human，保证 note 归属与 stats 数字一致；
+            // 已有归属的行不受影响。
+            {
+                let mut fill_lines: HashMap<String, Vec<u32>> = HashMap::new();
+                for hunk in &diff_hunks {
+                    fill_lines
+                        .entry(hunk.file_path.clone())
+                        .or_default()
+                        .extend(hunk.added_lines.iter().copied());
+                }
+                let fill_hunks: HashMap<String, Vec<crate::authorship::authorship_log::LineRange>> =
+                    fill_lines
+                        .into_iter()
+                        .map(|(path, mut lines)| {
+                            lines.sort_unstable();
+                            lines.dedup();
+                            (
+                                path,
+                                crate::authorship::authorship_log::LineRange::compress_lines(
+                                    &lines,
+                                ),
+                            )
+                        })
+                        .collect();
+                fill_unattributed_lines_as_human(&mut authorship_log, &fill_hunks, &human_author);
+            }
+
             let computed = stats_for_commit_stats_from_hunks(
                 repo,
                 &commit_sha,
