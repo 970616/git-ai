@@ -141,6 +141,51 @@ pub fn reconstruct_working_log_after_backward_reset(
         sessions,
     )?;
 
+    // 也把 old_tip 的 working log（未提交的 AI 打点）合并进来。
+    // reset --mixed 不清工作区：未提交编辑的打点仍挂在旧 base 目录下，
+    // 若不迁移会随旧目录归档而被丢弃，导致"已提交部分恢复成 AI、
+    // 未提交部分全部变 human"。这里只补充 new_tip 还没有的路径，
+    // 保留上面从 note 重建出的结果。
+    if repo.storage.has_working_log(old_tip) {
+        if let Ok(old_log) = repo.storage.working_log_for_base_commit(old_tip) {
+            let old_initial = old_log.read_initial_attributions();
+            if !old_initial.files.is_empty() {
+                let mut target = working_log.read_initial_attributions();
+                let mut added = false;
+                let dst_blobs = working_log.dir.join("blobs");
+                let _ = std::fs::create_dir_all(&dst_blobs);
+                for (path, attrs) in old_initial.files.iter() {
+                    if target.files.contains_key(path) {
+                        continue;
+                    }
+                    target.files.insert(path.clone(), attrs.clone());
+                    if let Some(blob_sha) = old_initial.file_blobs.get(path) {
+                        let src = old_log.dir.join("blobs").join(blob_sha);
+                        let dst = dst_blobs.join(blob_sha);
+                        if src.exists() && !dst.exists() {
+                            let _ = std::fs::copy(&src, &dst);
+                        }
+                        target.file_blobs.insert(path.clone(), blob_sha.clone());
+                    }
+                    added = true;
+                }
+                for (k, v) in old_initial.prompts.iter() {
+                    target.prompts.entry(k.clone()).or_insert_with(|| v.clone());
+                }
+                for (k, v) in old_initial.humans.iter() {
+                    target.humans.entry(k.clone()).or_insert_with(|| v.clone());
+                }
+                for (k, v) in old_initial.sessions.iter() {
+                    target.sessions.entry(k.clone()).or_insert_with(|| v.clone());
+                }
+                if added {
+                    // best-effort：合并失败不应破坏上面的重建结果
+                    let _ = working_log.write_initial(target);
+                }
+            }
+        }
+    }
+
     // Delete old working log if it exists
     let _ = repo.storage.delete_working_log_for_base_commit(old_tip);
 

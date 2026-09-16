@@ -363,6 +363,8 @@ fn compute_diff_tree_stdin(
         "-U0".to_string(),
         "-M".to_string(),
         "--no-color".to_string(),
+        // 忽略行尾回车差异:CRLF/LF 转换不应算作内容变更。
+        "--ignore-cr-at-eol".to_string(),
         "-r".to_string(),
     ]);
 

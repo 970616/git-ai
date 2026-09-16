@@ -44,6 +44,95 @@ pub struct RepoStorage {
     pub logs: PathBuf,
 }
 
+/// 追加一条人类可读的 AI 编辑明细到 `~/.git-ai/ai-edits.log`。
+/// 每次 AI 编辑（AiAgent 检查点）记录：时间戳、工具/模型、仓库、文件、行号、增删行数。
+/// 供本地排查/审计使用；打点数据会随提交归档清理，此日志长期保留。
+fn append_ai_edit_log(checkpoint: &Checkpoint, repo_workdir: &std::path::Path) {
+    use std::io::Write;
+    let Ok(home) = std::env::var("HOME") else {
+        return;
+    };
+    let log_path = std::path::PathBuf::from(home)
+        .join(".git-ai")
+        .join("ai-edits.log");
+    let _ = std::fs::create_dir_all(log_path.parent().unwrap_or(std::path::Path::new(".")));
+
+    let ts = chrono::DateTime::from_timestamp(checkpoint.timestamp as i64, 0)
+        .map(|dt| {
+            dt.with_timezone(&chrono::Local)
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string()
+        })
+        .unwrap_or_else(|| checkpoint.timestamp.to_string());
+
+    let tool = checkpoint
+        .agent_id
+        .as_ref()
+        .map(|a| {
+            if a.model.is_empty() {
+                a.tool.clone()
+            } else {
+                format!("{}/{}", a.tool, a.model)
+            }
+        })
+        .unwrap_or_else(|| "-".to_string());
+
+    let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+    else {
+        return;
+    };
+    for entry in &checkpoint.entries {
+        let mut file_ranges: Vec<String> = Vec::new();
+        for la in &entry.line_attributions {
+            if la.start_line == la.end_line {
+                file_ranges.push(la.start_line.to_string());
+            } else {
+                file_ranges.push(format!("{}-{}", la.start_line, la.end_line));
+            }
+        }
+        file_ranges.sort();
+        file_ranges.dedup();
+        let _ = writeln!(
+            f,
+            "{}  {:<24} {}  {}  {}  +{}/-{}",
+            ts,
+            tool,
+            repo_workdir.display(),
+            entry.file,
+            file_ranges.join(","),
+            checkpoint.line_stats.additions,
+            checkpoint.line_stats.deletions
+        );
+    }
+    drop(f);
+    rotate_log_if_large(&log_path, 4 * 1024 * 1024);
+}
+
+/// 简单轮转：日志超过 max_bytes 时保留尾部一半（尽力而为，失败静默）。
+fn rotate_log_if_large(path: &std::path::Path, max_bytes: u64) {
+    let Ok(meta) = std::fs::metadata(path) else {
+        return;
+    };
+    if meta.len() <= max_bytes {
+        return;
+    }
+    let Ok(data) = std::fs::read(path) else {
+        return;
+    };
+    let keep_from = data.len().saturating_sub((max_bytes / 2) as usize);
+    let mut start = keep_from;
+    while start < data.len() && data[start] != b'\n' {
+        start += 1;
+    }
+    if start < data.len() {
+        start += 1;
+    }
+    let _ = std::fs::write(path, &data[start..]);
+}
+
 impl RepoStorage {
     pub fn for_repo_path(repo_path: &Path, repo_workdir: &Path) -> Result<RepoStorage, GitAiError> {
         Self::for_ai_dir(&repo_path.join("ai"), repo_workdir)
@@ -453,6 +542,10 @@ impl PersistedWorkingLog {
 
     /* append checkpoint */
     pub fn append_checkpoint(&self, checkpoint: &Checkpoint) -> Result<(), GitAiError> {
+        // AI 编辑明细日志（本地排查/审计用；打点数据随提交归档清理，此日志长期保留）
+        if checkpoint.kind.is_ai() {
+            append_ai_edit_log(checkpoint, &self.repo_workdir);
+        }
         // Read existing checkpoints
         let mut checkpoints = self.read_all_checkpoints().unwrap_or_default();
 

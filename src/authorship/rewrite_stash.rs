@@ -176,6 +176,10 @@ pub fn handle_stash_pop_or_apply_with_head(
     let metadata: StashMetadata = serde_json::from_str(&content)?;
 
     let Some(current_head) = target_head.filter(|h| !h.is_empty()) else {
+        tracing::warn!(
+            "stash pop/apply: no target head resolved; note restore skipped (stash={})",
+            stash_sha
+        );
         return Ok(());
     };
 
@@ -184,6 +188,13 @@ pub fn handle_stash_pop_or_apply_with_head(
     } else {
         restore_stash_attributions(repo, stash_sha, current_head)?;
     }
+
+    tracing::info!(
+        "stash note restore applied: stash={} target={} base={}",
+        stash_sha,
+        current_head,
+        metadata.base_commit
+    );
 
     if is_pop {
         let _ = fs::remove_dir_all(stash_entry_dir(repo, stash_sha));
@@ -392,6 +403,36 @@ fn trim_initial_metadata_to_referenced_authors(initial: &mut InitialAttributions
         .retain(|session_id, _| referenced_sessions.contains(session_id));
 }
 
+/// 兜底恢复：不做行号平移，直接把 stash 打包的 attributions 合并到目标 base。
+/// 用于"内容重建/行号平移失败"的跨分支场景（否则 AI 归属会被整体丢弃）。
+/// 后续提交的行归属匹配仍会做内容校验，不会污染无关行。
+fn restore_stash_attributions_raw(
+    repo: &Repository,
+    stash_log: &PersistedWorkingLog,
+    initial: &InitialAttributions,
+    current_head: &str,
+) -> Result<(), GitAiError> {
+    if initial.files.is_empty() {
+        return Ok(());
+    }
+    let working_log = repo.storage.working_log_for_base_commit(current_head)?;
+
+    // 复制文件内容快照（blobs）
+    let dst_blobs = working_log.dir.join("blobs");
+    let _ = fs::create_dir_all(&dst_blobs);
+    for blob_sha in initial.file_blobs.values() {
+        let src = stash_log.dir.join("blobs").join(blob_sha);
+        let dst = dst_blobs.join(blob_sha);
+        if src.exists() && !dst.exists() {
+            let _ = fs::copy(&src, &dst);
+        }
+    }
+
+    remove_checkpoint_entries_for_files(&working_log, initial.files.keys().cloned())?;
+    merge_initial_replacing_paths(&working_log, initial.clone())?;
+    Ok(())
+}
+
 fn restore_stash_attributions(
     repo: &Repository,
     stash_sha: &str,
@@ -501,7 +542,13 @@ fn restore_stash_attributions_with_shift(
     }
 
     if files.is_empty() {
-        return Ok(());
+        // 内容重建/行号平移失败（跨分支场景常见）：退化为"按 stash 原样恢复"，
+        // 否则 AI 归属会被整体丢弃（实测 stash→换分支→pop 曾 100% 丢失）。
+        tracing::warn!(
+            "stash restore: shift produced no files for {}; falling back to raw attributions",
+            stash_sha
+        );
+        return restore_stash_attributions_raw(repo, &stash_log, &initial, current_head);
     }
 
     let working_log = repo.storage.working_log_for_base_commit(current_head)?;

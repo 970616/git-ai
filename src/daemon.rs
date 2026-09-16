@@ -5431,6 +5431,10 @@ impl ActorDaemonCoordinator {
                                     crate::authorship::rewrite_stash::handle_stash_pop_or_apply_with_head(
                                         &repo, stash_sha, true, target_head,
                                     )?;
+                                } else {
+                                    tracing::warn!(
+                                        "stash pop: unresolved stash sha; note restore skipped"
+                                    );
                                 }
                             }
                             crate::daemon::domain::StashOpKind::Apply

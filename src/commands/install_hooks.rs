@@ -366,6 +366,9 @@ pub fn run(args: &[String]) -> Result<HashMap<String, String>, GitAiError> {
     // Install git pre-push hook for Gerrit notes reporting
     install_git_prepush_hook(&binary_path, options.dry_run);
 
+    // Install post-rewrite hook: carry AI notes across rebase/amend
+    install_post_rewrite_hook(&binary_path, options.dry_run);
+
     // Install pre-commit hook (husky if active, else standard .git/hooks/pre-commit)
     install_precommit_hook(&binary_path, options.dry_run);
 
@@ -1096,6 +1099,107 @@ fn install_clone_template(dry_run: bool) -> Result<(), GitAiError> {
 ///
 /// The hook reads the `gitai-report.endpoint` git config key.  When absent
 /// the hook exits immediately with no side effects.
+/// 记录 hook 安装/重装事件到 ~/.git-ai/hooks.log（排查"hook 被何时重装"用）。
+fn log_hook_install(hook_name: &str, path: &Path) {
+    use std::fs;
+    use std::io::Write;
+    let Ok(home) = std::env::var("HOME") else {
+        return;
+    };
+    let log_path = PathBuf::from(home).join(".git-ai").join("hooks.log");
+    let _ = fs::create_dir_all(log_path.parent().unwrap_or(Path::new(".")));
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    let ts_str = chrono::DateTime::from_timestamp(ts, 0)
+        .map(|dt| {
+            dt.with_timezone(&chrono::Local)
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string()
+        })
+        .unwrap_or_else(|| ts.to_string());
+    if let Ok(mut f) = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+    {
+        let _ = writeln!(
+            f,
+            "{}  (re)install {}  -> {}",
+            ts_str,
+            hook_name,
+            path.display()
+        );
+    }
+}
+
+/// 安装 post-rewrite hook：在 rebase/amend 完成时把旧提交的 AI note
+/// 迁移到重写后的新提交（内容一致时），弥补 daemon 异步迁移的时延/遗漏。
+/// 已有的 post-rewrite（用户或其他工具）会先备份为 post-rewrite.git-ai-bak。
+fn install_post_rewrite_hook(_binary_path: &Path, dry_run: bool) {
+    use std::fs;
+
+    let git_dir = match std::process::Command::new("git")
+        .args(["rev-parse", "--git-common-dir"])
+        .output()
+    {
+        Ok(out) if out.status.success() => {
+            PathBuf::from(String::from_utf8_lossy(&out.stdout).trim().to_string())
+        }
+        _ => return,
+    };
+
+    let hooks_dir = git_dir.join("hooks");
+    let post_rewrite_path = hooks_dir.join("post-rewrite");
+
+    log_hook_install("post-rewrite", &post_rewrite_path);
+
+    let existing = if post_rewrite_path.exists() {
+        fs::read_to_string(&post_rewrite_path).unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    let is_git_ai = existing.contains("git-ai post-rewrite");
+
+    if dry_run {
+        println!(
+            "  Would install post-rewrite hook: {}",
+            post_rewrite_path.display()
+        );
+        return;
+    }
+
+    if let Err(e) = fs::create_dir_all(&hooks_dir) {
+        eprintln!("  ⚠ Failed to create hooks dir: {}", e);
+        return;
+    }
+
+    // 非 git-ai 的已有 hook 先备份一次（保留原文件内容以便回溯）
+    if !existing.trim().is_empty() && !is_git_ai {
+        let backup_path = hooks_dir.join("post-rewrite.git-ai-bak");
+        if !backup_path.exists() {
+            let _ = fs::write(&backup_path, &existing);
+        }
+    }
+
+    if let Err(e) = fs::write(&post_rewrite_path, POST_REWRITE_HOOK_CONTENT) {
+        eprintln!("  ⚠ Failed to write post-rewrite hook: {}", e);
+        return;
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = fs::metadata(&post_rewrite_path) {
+            let mut perms = meta.permissions();
+            perms.set_mode(0o755);
+            let _ = fs::set_permissions(&post_rewrite_path, perms);
+        }
+    }
+}
+
 fn install_git_prepush_hook(binary_path: &Path, dry_run: bool) {
     use std::fs;
 
@@ -1111,6 +1215,8 @@ fn install_git_prepush_hook(binary_path: &Path, dry_run: bool) {
 
     let hooks_dir = git_dir.join("hooks");
     let pre_push_path = hooks_dir.join("pre-push");
+
+    log_hook_install("pre-push", &pre_push_path);
 
     let existing = if pre_push_path.exists() {
         fs::read_to_string(&pre_push_path).unwrap_or_default()
@@ -1550,6 +1656,126 @@ def commits_to_push(local_sha, remote_sha, remote_name):
         rng = git("rev-list", local_sha, "--not", "--remotes=%s" % remote_name)
     return [c for c in rng.split() if c]
 
+_patch_id_cache = {}
+
+def _stable_patch_id(commit):
+    """提交 diff 的稳定 patch-id（内容相同则相同；用于跨重放匹配）。"""
+    if commit in _patch_id_cache:
+        return _patch_id_cache[commit]
+    pid = ""
+    if re.match(r"^[0-9a-fA-F]{7,64}$", commit or ""):
+        try:
+            out = subprocess.check_output(
+                "git show --no-color --full-index %s | git patch-id --stable" % commit,
+                shell=True, stderr=subprocess.PIPE)
+            parts = out.decode("utf-8", "replace").split()
+            if parts:
+                pid = parts[0]
+        except Exception:
+            pid = ""
+    _patch_id_cache[commit] = pid
+    return pid
+
+def migrate_note_by_patch_id(commit, notes_ref):
+    """提交在重放（rebase/cherry-pick/手工重放）后没有 note、但内容与某个
+    已有 note 的提交完全相同时，把旧 note 原样复制到该提交，返回 note 文本；
+    找不到匹配返回空字符串。"""
+    pid = _stable_patch_id(commit)
+    if not pid:
+        return ""
+    listing = git("notes", "--ref=%s" % notes_ref, "list")
+    for line in listing.splitlines():
+        parts = line.split()
+        if len(parts) != 2:
+            continue
+        old_commit = parts[1]
+        if old_commit == commit:
+            continue
+        if _stable_patch_id(old_commit) != pid:
+            continue
+        old_note = git("notes", "--ref=%s" % notes_ref, "show", old_commit)
+        if not old_note.strip():
+            continue
+        try:
+            import tempfile
+            fd, tmp_path = tempfile.mkstemp(prefix="git-ai-note-")
+            with os.fdopen(fd, "wb") as f:
+                f.write(old_note.encode("utf-8"))
+            try:
+                subprocess.check_output(
+                    ("git", "notes", "--ref=%s" % notes_ref, "add", "-f",
+                     "-F", tmp_path, commit), stderr=subprocess.PIPE)
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+            sys.stderr.write("[git-ai-report] note migrated by patch-id: %s -> %s\n"
+                             % (old_commit[:12], commit[:12]))
+            report_log("commit=%s  result=migrated  from=%s" % (commit[:12], old_commit[:12]))
+            return git("notes", "--ref=%s" % notes_ref, "show", commit)
+        except Exception:
+            return ""
+    return ""
+
+def report_log(line):
+    """把每次上报的结果追加到 ~/.git-ai/report.log（排查用；失败静默）。"""
+    try:
+        path = os.path.join(os.path.expanduser("~"), ".git-ai", "report.log")
+        d = os.path.dirname(path)
+        if not os.path.isdir(d):
+            os.makedirs(d)
+        f = open(path, "a")
+        try:
+            f.write("%s  %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), line))
+        finally:
+            f.close()
+        try:
+            if os.path.getsize(path) > 4 * 1024 * 1024:
+                data = open(path, "rb").read()
+                keep = data[-(2 * 1024 * 1024):]
+                nl = keep.find(b"\n")
+                if nl >= 0:
+                    keep = keep[nl + 1:]
+                open(path, "wb").write(keep)
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+def sandbox_diag():
+    """上报随附的本机环境快照（只读、快速、出错忽略；支持平台按沙箱分诊）。"""
+    diag = {}
+    try:
+        import socket as _socket
+        diag["sandbox_id"] = _socket.gethostname()
+    except Exception:
+        diag["sandbox_id"] = ""
+    try:
+        target = git_config("trace2.eventtarget", "")
+        ok = target.startswith("af_unix:stream:") and os.path.exists(
+            target[len("af_unix:stream:"):])
+        diag["daemon"] = "ok" if ok else "missing"
+    except Exception:
+        diag["daemon"] = "unknown"
+    try:
+        hooks = []
+        home = os.path.expanduser("~")
+        for tool, path in (("claude", os.path.join(home, ".claude", "settings.json")),
+                           ("qoder", os.path.join(home, ".qoder", "settings.json")),
+                           ("kiro", os.path.join(home, ".kiro", "hooks", "git-ai.json"))):
+            try:
+                if os.path.exists(path):
+                    hooks.append(tool + ":ok")
+                else:
+                    hooks.append(tool + ":none")
+            except Exception:
+                hooks.append(tool + ":unknown")
+        diag["hooks"] = ",".join(hooks)
+    except Exception:
+        diag["hooks"] = "unknown"
+    return diag
+
 def parse_note(note_text):
     """把 note 文本解析成 (files 结构化数组, metadata dict)。
 
@@ -1644,6 +1870,10 @@ def main():
     if not endpoint:
         return 0
 
+    # 沙箱环境快照（随上报附带：本地排查 + 平台按沙箱分诊；出错不影响上报）
+    _sandbox_diag = sandbox_diag()
+    _sandbox_id = _sandbox_diag.get("sandbox_id", "")
+
     # 仓库地址（上报新增字段 git_repo_url）：优先用本次 push 的 remote url，
     # 取不到时回退 origin 的 url。
     repo_url = remote_url or git("remote", "get-url", remote_name).strip() \
@@ -1661,6 +1891,22 @@ def main():
         for commit in commits_to_push(local_sha, remote_sha, remote_name):
             note = git("notes", "--ref=%s" % notes_ref, "show", commit)
             if not note.strip():
+                # note 由 daemon 异步生成：等待重试（最多约 6 秒），
+                # 覆盖"提交后立即推送"导致 note 尚未落盘的场景。
+                for _retry in range(12):
+                    time.sleep(0.5)
+                    note = git("notes", "--ref=%s" % notes_ref, "show", commit)
+                    if note.strip():
+                        break
+            if not note.strip():
+                # 仍无 note：尝试按 patch-id 兜底迁移（rebase/cherry-pick/
+                # 手工重放后 note 未随新提交迁移的场景）。
+                note = migrate_note_by_patch_id(commit, notes_ref)
+            if not note.strip():
+                sys.stderr.write(
+                    "[git-ai-report] SKIP %s: no note (waited ~6s, no patch-id match)\n"
+                    % commit[:12])
+                report_log("commit=%s  result=skip  reason=no-note" % commit[:12])
                 continue
             files, meta = parse_note(note)
             payload = {
@@ -1668,6 +1914,9 @@ def main():
                 "git_repo_url": repo_url,
                 "head_commit_sha": commit,
                 "commit_at": commit_time(commit),
+                # ===== 沙箱诊断（本地排查 / 平台按沙箱分诊）=====
+                "sandbox_id": _sandbox_id,
+                "sandbox_diag": _sandbox_diag,
                 # ===== 归因主体（结构化，来自 note）=====
                 "schema_version": meta.get("schema_version", ""),
                 "git_ai_version": meta.get("git_ai_version", ""),
@@ -1688,9 +1937,12 @@ def main():
             # 正常上报静默（用户无感知）；仅失败时输出一条错误便于排障。
             try:
                 post_json(endpoint, token, payload)
+                report_log("commit=%s  result=ok  branch=%s  files=%d"
+                           % (commit[:12], branch, len(files)))
             except Exception as e:
                 had_error = True
                 sys.stderr.write("[git-ai-report] FAIL %s: %s\n" % (commit[:12], e))
+                report_log("commit=%s  result=fail  err=%s" % (commit[:12], e))
     if had_error and fail_on_error:
         sys.stderr.write("[git-ai-report] Aborting push (failonerror=true)\n")
         return 1
@@ -1698,6 +1950,46 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+"##;
+
+const POST_REWRITE_HOOK_CONTENT: &str = r##"#!/bin/sh
+# git-ai post-rewrite: carry AI authorship notes across rewrites
+# (rebase/amend/replay). Installed by `git ai install-hooks`.
+#
+# git 在重写时通过 stdin 传入 "<old-sha> <new-sha>" 映射表。
+# 对每一对：旧提交有 AI note、新提交没有、且内容一致（patch-id 相同）时，
+# 把 note 原样复制到新提交（行归属与文件内容一一对应，可直接搬）。
+# 内容不一致（rebase 解冲突改过内容）时保守跳过，不做任何改动。
+# stdin 先落临时文件：既供本脚本读取，也可转发给安装时备份的原有 hook。
+tmp="$(mktemp 2>/dev/null || echo /tmp/git-ai-post-rewrite.$$)"
+cat > "$tmp"
+while read -r old_sha new_sha _rest; do
+  [ -z "$old_sha" ] && continue
+  [ -z "$new_sha" ] && continue
+  case "$old_sha" in
+    0000000000000000000000000000000000000000) continue ;;
+  esac
+  # 新提交已有 note 则跳过
+  if git notes --ref=ai show "$new_sha" >/dev/null 2>&1; then
+    continue
+  fi
+  note="$(git notes --ref=ai show "$old_sha" 2>/dev/null)" || continue
+  [ -z "$note" ] && continue
+  # 内容校验：新旧提交的 patch-id 一致才搬（冲突解决场景内容变了，不搬）
+  old_pid="$(git show --no-color --full-index "$old_sha" 2>/dev/null | git patch-id --stable 2>/dev/null | awk '{print $1}')"
+  new_pid="$(git show --no-color --full-index "$new_sha" 2>/dev/null | git patch-id --stable 2>/dev/null | awk '{print $1}')"
+  [ -z "$old_pid" ] && continue
+  [ "$old_pid" != "$new_pid" ] && continue
+  if printf '%s\n' "$note" | git notes --ref=ai add -f -F - "$new_sha" 2>/dev/null; then
+    echo "[git-ai] note migrated: $old_sha -> $new_sha" >&2
+  fi
+done < "$tmp"
+# 兼容：安装时若备份了原有 post-rewrite（例如 yorkie 转发器），把映射表转发给它（失败不阻塞）
+if [ -x "$0.git-ai-bak" ]; then
+  "$0.git-ai-bak" "$@" < "$tmp" >/dev/null 2>&1 || true
+fi
+rm -f "$tmp"
+exit 0
 "##;
 
 #[cfg(test)]
@@ -1783,6 +2075,26 @@ mod tests {
             &options
         ));
         assert!(should_include_installer("vscode", &options));
+    }
+
+    #[test]
+    fn pre_push_hook_waits_and_falls_back_for_missing_notes() {
+        // "提交后秒推"：读不到 note 时应等待重试，而不是直接跳过上报
+        assert!(PRE_PUSH_HOOK_CONTENT.contains("for _retry in range(12)"));
+        // rebase/cherry-pick/手工重放：无 note 时按 patch-id 兜底迁移
+        assert!(PRE_PUSH_HOOK_CONTENT.contains("migrate_note_by_patch_id"));
+        assert!(PRE_PUSH_HOOK_CONTENT.contains("_stable_patch_id"));
+        // 跳过时给出可观测提示（不再静默）
+        assert!(PRE_PUSH_HOOK_CONTENT.contains("no note (waited ~6s"));
+    }
+
+    #[test]
+    fn post_rewrite_hook_migrates_notes_with_patch_id_check() {
+        assert!(POST_REWRITE_HOOK_CONTENT.contains("git-ai post-rewrite"));
+        assert!(POST_REWRITE_HOOK_CONTENT.contains("patch-id"));
+        assert!(POST_REWRITE_HOOK_CONTENT.contains("git notes --ref=ai add"));
+        // 兜底：hook 自身永远成功退出，不阻塞 rebase/amend
+        assert!(POST_REWRITE_HOOK_CONTENT.contains("exit 0"));
     }
 
     #[test]

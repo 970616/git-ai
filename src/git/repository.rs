@@ -1779,6 +1779,9 @@ impl Repository {
         args.push("diff".to_string());
         args.push("-U0".to_string()); // Zero context lines
         args.push("--no-color".to_string());
+        // 忽略行尾回车差异:避免 CRLF/LF 转换把整文件误判为"变更"
+        // (checkpoint 打点侧已做行尾归一化,提交侧需保持一致口径)。
+        args.push("--ignore-cr-at-eol".to_string());
         // Use permissive rename detection to properly handle renames
         args.push("--find-renames=1%".to_string());
         args.push(from_ref.to_string());
@@ -1830,6 +1833,8 @@ impl Repository {
         args.push("diff".to_string());
         args.push("-U0".to_string());
         args.push("--no-color".to_string());
+        // 同上:忽略行尾回车差异,避免 CRLF/LF 转换误判全文件变更。
+        args.push("--ignore-cr-at-eol".to_string());
         args.push("--find-renames=1%".to_string());
         args.push(from_ref.to_string());
         args.push(to_ref.to_string());
@@ -1887,6 +1892,8 @@ impl Repository {
         args.push("diff".to_string());
         args.push("-U0".to_string()); // Zero context lines
         args.push("--no-color".to_string());
+        // 同上:忽略行尾回车差异,避免 CRLF/LF 转换误判全文件变更。
+        args.push("--ignore-cr-at-eol".to_string());
         args.push("--no-renames".to_string());
         args.push(from_ref.to_string());
 

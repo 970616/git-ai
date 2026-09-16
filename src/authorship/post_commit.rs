@@ -506,6 +506,14 @@ where
 
     write_note(repo, &commit_sha, &authorship_note_str)?;
 
+    // note 生成记录（排查"note 延迟/缺失"用）
+    tracing::info!(
+        commit = %commit_sha,
+        ai_additions = stats.ai_additions,
+        human_additions = stats.human_additions,
+        "note written"
+    );
+
     // Record metrics only when we have full stats（移到 write_note 之后，因为依赖 authorship_note_str）。
     if let Some(computed) = computed_for_metrics {
         record_commit_metrics(
@@ -890,6 +898,9 @@ pub(crate) fn post_commit_amend_with_recovery_timestamps_detailed(
         .serialize_to_string()
         .map_err(|_| GitAiError::Generic("Failed to serialize authorship log".to_string()))?;
     write_note(repo, amended_commit, &authorship_note_str)?;
+
+    // note 生成记录（amend；排查"note 延迟/缺失"用）
+    tracing::info!(commit = %amended_commit, "note written (amend)");
 
     // Write INITIAL file for uncommitted attributions
     if !initial_attributions.files.is_empty() {

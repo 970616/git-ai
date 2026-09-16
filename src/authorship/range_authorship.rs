@@ -351,6 +351,8 @@ fn get_git_diff_stats_for_range(
     let mut args = repo.global_args_for_exec();
     args.push("diff".to_string());
     args.push("--numstat".to_string());
+    // 忽略行尾回车差异:CRLF/LF 转换不应计入增删行数。
+    args.push("--ignore-cr-at-eol".to_string());
     args.push(format!("{}..{}", start_sha, end_sha));
 
     let output = exec_git_with_profile(&args, InternalGitProfile::NumstatParse)?;
