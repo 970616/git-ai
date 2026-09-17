@@ -376,6 +376,13 @@ pub fn run(args: &[String]) -> Result<HashMap<String, String>, GitAiError> {
     // Install pre-commit hook (husky if active, else standard .git/hooks/pre-commit)
     install_precommit_hook(&binary_path, options.dry_run);
 
+    // husky 接管 core.hooksPath 后 git 只执行 .husky/ 下的 hook；为其余依赖
+    // .git/hooks 的 hook 补转发壳，保证 husky 模式与 git 模式功能一致
+    // （post-rewrite 的 note 迁移、commit-msg 的 Gerrit Change-Id 生成等）。
+    for hook_name in ["post-rewrite", "post-checkout", "commit-msg", "post-commit"] {
+        install_husky_forwarder(hook_name, options.dry_run);
+    }
+
     let params = HookInstallerParams { binary_path };
 
     // Run async operations and convert result.
@@ -1206,6 +1213,98 @@ fn install_post_rewrite_hook(_binary_path: &Path, dry_run: bool) {
             let _ = fs::set_permissions(&post_rewrite_path, perms);
         }
     }
+}
+
+/// 为 husky 项目补 hook 转发器：husky 接管 core.hooksPath 后，git 只执行
+/// .husky/ 下的 hook，.git/hooks/<hook>（git-ai 或其他工具安装的）不再被调用。
+/// 当 .husky/<hook> 缺失时写转发壳（stdin/参数原样透传、目标不存在时静默通过、
+/// 目标存在时保持其退出码）；已有用户内容时以插入调用的方式合并（不覆盖）。
+/// 幂等，重复执行不重写。
+fn install_husky_forwarder(hook_name: &str, dry_run: bool) {
+    use std::fs;
+
+    let top = match std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+    {
+        Ok(out) if out.status.success() => {
+            PathBuf::from(String::from_utf8_lossy(&out.stdout).trim().to_string())
+        }
+        _ => return,
+    };
+
+    let husky_dir = top.join(".husky");
+    if !husky_dir.is_dir() {
+        return;
+    }
+
+    let target = husky_dir.join(hook_name);
+    let existing = if target.exists() {
+        fs::read_to_string(&target).unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    // 幂等标记：已装完整转发壳，或已合并过转发调用，都直接跳过。
+    let marker = format!("git-ai {hook_name} forwarder (husky)");
+    let call_line = format!(
+        "t=\"$(git rev-parse --git-common-dir)/hooks/{hook_name}\"; [ -f \"$t\" ] && \"$t\" \"$@\" || true"
+    );
+    if existing.contains(&marker) || existing.contains(&call_line) {
+        println!(
+            "  ✓ husky {hook_name} already configured: {}",
+            target.display()
+        );
+        return;
+    }
+
+    if dry_run {
+        println!(
+            "  Would install husky {hook_name} forwarder: {}",
+            target.display()
+        );
+        return;
+    }
+
+    let new_content = if existing.trim().is_empty() {
+        // 转发壳：目标 hook 不存在时静默通过（exit 0），存在时 exec 透传
+        // （保留目标 hook 的退出码语义，例如 Gerrit commit-msg 的校验失败）。
+        format!(
+            "#!/usr/bin/env sh\n# git-ai {hook_name} forwarder (husky)\n# Installed by `git ai install-hooks` — do not edit manually.\n# husky 接管 core.hooksPath 后 git 不跑 .git/hooks/{hook_name}，\n# 用这个转发器让它（以及其他工具安装的同名 hook）在 husky 项目也能触发（stdin 自动透传）。\nt=\"$(git rev-parse --git-common-dir)/hooks/{hook_name}\"\nif [ -f \"$t\" ]; then exec \"$t\" \"$@\"; fi\nexit 0\n"
+        )
+    } else {
+        // 已有用户自己的 hook：插到 shebang 之后调用（|| true 不干扰用户文件
+        // 原有的退出码语义），保留用户原有命令。
+        let insert = format!(
+            "\n# git-ai {hook_name} 转发（husky 模式下调用 .git/hooks/{hook_name}，失败不阻塞）\n{call_line}\n"
+        );
+        if let Some(first_newline) = existing.find('\n')
+            && existing.trim_start().starts_with("#!")
+        {
+            let (first_line, rest) = existing.split_at(first_newline + 1);
+            format!("{}{}{}", first_line, insert, rest)
+        } else {
+            format!("{}{}", insert, existing)
+        }
+    };
+
+    if let Err(e) = fs::write(&target, &new_content) {
+        eprintln!("  ⚠ Failed to write .husky/{hook_name}: {e}");
+        return;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = fs::metadata(&target) {
+            let mut perms = meta.permissions();
+            perms.set_mode(0o755);
+            let _ = fs::set_permissions(&target, perms);
+        }
+    }
+    println!(
+        "  ✓ husky {hook_name} forwarder installed: {}",
+        target.display()
+    );
 }
 
 /// 修复历史 clone 模板遗留的 post-checkout：旧模板在【每次分支 checkout】都无条件
