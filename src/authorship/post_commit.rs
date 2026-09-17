@@ -446,6 +446,10 @@ where
             .retain(|a| !should_exclude_checkpoint_path(&a.file_path));
     }
 
+    // 统一兜底：sessions[].human_author 为空时填提交者（stash 等链路会带出 null，
+    // 平台后端对 sessions[].human_author 为 null 的上报会 500）。
+    fill_missing_session_human_authors(&mut authorship_log, &human_author);
+
     // Compute stats once (needed for note metadata, metrics and terminal output), unless
     // preflight estimate predicts this would be too expensive for the commit hook path.
     // 提前到 write_note 之前执行：把占比注入 note metadata，随 note 持久化，供 `git ai show` 直接展示。
@@ -695,6 +699,28 @@ fn recovery_committed_hunks(
             )
         })
         .collect())
+}
+
+/// 兜底：sessions[].human_author 为空时填入提交者。
+/// 编辑时刻（checkpoint）创建的会话记录尚不知道提交者；正常提交链会在生成
+/// note 时重新填充，而部分链路（stash 打包/恢复等）会把空记录原样带出——
+/// 上报 payload 中 sessions[].human_author 为 null 会被平台后端拒绝
+/// （author_raw 非空约束导致 500）。
+fn fill_missing_session_human_authors(
+    authorship_log: &mut crate::authorship::authorship_log_serialization::AuthorshipLog,
+    human_author: &str,
+) {
+    for session in authorship_log.metadata.sessions.values_mut() {
+        if session
+            .human_author
+            .as_deref()
+            .map(str::trim)
+            .unwrap_or("")
+            .is_empty()
+        {
+            session.human_author = Some(human_author.to_string());
+        }
+    }
 }
 
 /// 兜底：把本次提交引入（committed hunks 内）、但仍无任何归属的行记为该提交的
@@ -984,6 +1010,9 @@ pub(crate) fn post_commit_amend_with_recovery_timestamps_detailed(
             .attestations
             .retain(|a| !should_exclude_checkpoint_path(&a.file_path));
     }
+
+    // 统一兜底：sessions[].human_author 为空时填提交者（与正常 commit 路径一致）。
+    fill_missing_session_human_authors(&mut authorship_log, &human_author);
 
     // 算占比（src/ 内口径）注入 note metadata，供 `git ai show` 直接展示，与正常 commit 路径一致。
     // amend 路径无 options.compute_stats 开关，这里直接算；失败不阻塞写 note（降级为无占比）。
