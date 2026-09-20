@@ -1277,6 +1277,197 @@ fn detect_renames_in_commit(
     Ok(renames)
 }
 
+/// 内容认领——兜住 git 的 parent→commit rename 检测覆盖不到的两类改名场景：
+/// ① 文件首次以"改名后的新路径"提交（parent 里根本不存在旧路径，diff 无 rename 条目）；
+/// ② 改名跨了被丢弃/重写的提交线（如 reset 后重新提交），最终 parent 里没有旧路径副本。
+///
+/// 对每个"在提交中已不存在"的 working-log 路径：候选目标是本提交新增的文件；
+/// 内容（忽略行尾）完全一致者直接认领；否则按 trim 后的行集合 Jaccard 相似度，
+/// 且必须明显优于同一旧路径的其他候选、且目标未被其他旧路径认领，才接受认领
+/// （错搬比不搬更糟）。
+const CLAIM_SIMILARITY_FLOOR: f64 = 0.5;
+
+fn claim_renamed_paths_by_content(
+    repo: &Repository,
+    parent_sha: &str,
+    commit_sha: &str,
+    working_log_contents: &HashMap<String, String>,
+    rename_map: &mut HashMap<String, String>,
+) -> Result<(), GitAiError> {
+    use crate::git::repository::exec_git_allow_nonzero;
+    use std::collections::HashSet;
+
+    // 候选目标 = 本提交新增的文件。故意不带 -M：git 会把 rename 报成
+    // delete+add，改名后的目标因此出现在 A 列表里。
+    let mut args = repo.global_args_for_exec();
+    args.extend([
+        "diff-tree".to_string(),
+        "-r".to_string(),
+        "--diff-filter=A".to_string(),
+        "--name-only".to_string(),
+        "-z".to_string(),
+        parent_sha.to_string(),
+        commit_sha.to_string(),
+    ]);
+    let output = exec_git_allow_nonzero(&args)?;
+    if !output.status.success() {
+        return Ok(());
+    }
+    let added_paths: Vec<String> = output
+        .stdout
+        .split(|&b| b == 0)
+        .filter(|bytes| !bytes.is_empty())
+        .filter_map(|bytes| String::from_utf8(bytes.to_vec()).ok())
+        .collect();
+    if added_paths.is_empty() {
+        return Ok(());
+    }
+
+    // 需要认领的路径：不在提交里（batch 读取对缺失路径返回空串）、且尚未被
+    // git 的 rename 检测覆盖。空内容的路径没有可搬运的归属，直接跳过。
+    let probe_requests: Vec<(String, String)> = working_log_contents
+        .keys()
+        .filter(|p| !rename_map.contains_key(p.as_str()))
+        .map(|p| (commit_sha.to_string(), p.clone()))
+        .collect();
+    if probe_requests.is_empty() {
+        return Ok(());
+    }
+    let probe = batch_file_contents(repo, &probe_requests)?;
+    let mut need_claim: Vec<&String> = Vec::new();
+    for path in working_log_contents.keys() {
+        if rename_map.contains_key(path.as_str()) {
+            continue;
+        }
+        if working_log_contents
+            .get(path)
+            .map(|c| c.trim().is_empty())
+            .unwrap_or(true)
+        {
+            continue;
+        }
+        let committed_present = probe
+            .get(&(commit_sha.to_string(), path.clone()))
+            .map(|c| !c.trim().is_empty())
+            .unwrap_or(false);
+        if committed_present {
+            // 路径仍存在于提交中——走正常路径匹配。
+            continue;
+        }
+        need_claim.push(path);
+    }
+    if need_claim.is_empty() {
+        return Ok(());
+    }
+
+    let cand_requests: Vec<(String, String)> = added_paths
+        .iter()
+        .map(|p| (commit_sha.to_string(), p.clone()))
+        .collect();
+    let cand_contents = batch_file_contents(repo, &cand_requests)?;
+
+    struct Claim {
+        old_path: String,
+        new_path: String,
+        score: f64,
+        exact: bool,
+    }
+    let mut claims: Vec<Claim> = Vec::new();
+    for old_path in &need_claim {
+        let Some(old_content) = working_log_contents.get(old_path.as_str()) else {
+            continue;
+        };
+        let old_set: HashSet<&str> = old_content
+            .lines()
+            .map(|l| l.trim())
+            .filter(|l| !l.is_empty())
+            .collect();
+        if old_set.is_empty() {
+            continue;
+        }
+        for new_path in &added_paths {
+            let new_content = cand_contents
+                .get(&(commit_sha.to_string(), new_path.clone()))
+                .map(|c| c.as_str())
+                .unwrap_or("");
+            if new_content.trim().is_empty() {
+                continue;
+            }
+            if content_eq_ignoring_line_endings(old_content, new_content) {
+                claims.push(Claim {
+                    old_path: (*old_path).clone(),
+                    new_path: new_path.clone(),
+                    score: 1.0,
+                    exact: true,
+                });
+                continue;
+            }
+            let new_set: HashSet<&str> = new_content
+                .lines()
+                .map(|l| l.trim())
+                .filter(|l| !l.is_empty())
+                .collect();
+            let inter = old_set.intersection(&new_set).count() as f64;
+            let union = old_set.union(&new_set).count() as f64;
+            if union == 0.0 {
+                continue;
+            }
+            let score = inter / union;
+            if score >= CLAIM_SIMILARITY_FLOOR {
+                claims.push(Claim {
+                    old_path: (*old_path).clone(),
+                    new_path: new_path.clone(),
+                    score,
+                    exact: false,
+                });
+            }
+        }
+    }
+    if claims.is_empty() {
+        return Ok(());
+    }
+
+    // 贪心分配：exact 优先、分数降序；每条旧路径与每个目标至多认领一次；
+    // 模糊认领必须对同一旧路径的次优候选有明显优势，否则视为歧义放弃。
+    claims.sort_by(|a, b| {
+        b.exact.cmp(&a.exact).then(
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal),
+        )
+    });
+    let mut claimed_old: HashSet<String> = HashSet::new();
+    let mut claimed_new: HashSet<String> = HashSet::new();
+    for (idx, claim) in claims.iter().enumerate() {
+        if claimed_old.contains(&claim.old_path) || claimed_new.contains(&claim.new_path) {
+            continue;
+        }
+        if !claim.exact {
+            let runner_up = claims
+                .iter()
+                .skip(idx + 1)
+                .find(|c| c.old_path == claim.old_path && c.new_path != claim.new_path)
+                .map(|c| c.score)
+                .unwrap_or(0.0);
+            if claim.score - runner_up < 0.05 {
+                continue;
+            }
+        }
+        rename_map.insert(claim.old_path.clone(), claim.new_path.clone());
+        claimed_old.insert(claim.old_path.clone());
+        claimed_new.insert(claim.new_path.clone());
+        tracing::info!(
+            "rename content-claim: {} -> {} (score {:.2}{})",
+            claim.old_path,
+            claim.new_path,
+            claim.score,
+            if claim.exact { ", exact" } else { "" }
+        );
+    }
+
+    Ok(())
+}
+
 /// Helper function to collect unstaged line ranges (lines in working directory but not in commit)
 /// Returns (unstaged_hunks, pure_insertion_hunks)
 /// pure_insertion_hunks contains lines that were purely inserted (old_count=0), not modifications
@@ -2169,13 +2360,26 @@ impl VirtualAttributions {
         let fallback_diff_base = diff_context
             .fallback_committed_diff_base
             .unwrap_or(parent_sha);
-        let rename_map = if let Some(diff) = precomputed_parent_diff {
+        let mut rename_map = if let Some(diff) = precomputed_parent_diff {
             diff.renames.iter().cloned().collect()
         } else if parent_sha != "initial" {
             detect_renames_in_commit(repo, fallback_diff_base, commit_sha).unwrap_or_default()
         } else {
             HashMap::new()
         };
+        // git 的 parent→commit rename 检测覆盖不到"新路径首次提交"与"跨丢弃线
+        // 改名"两类场景；按内容认领补齐映射（best-effort，失败不影响主流程）。
+        if parent_sha != "initial"
+            && let Err(err) = claim_renamed_paths_by_content(
+                repo,
+                fallback_diff_base,
+                commit_sha,
+                &self.file_contents,
+                &mut rename_map,
+            )
+        {
+            tracing::warn!("rename content-claim failed: {}", err);
+        }
 
         // Extend pathspecs with renamed-to paths so diff_added_lines doesn't filter them out.
         let extended_pathspecs;
