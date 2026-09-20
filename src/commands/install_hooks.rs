@@ -1088,7 +1088,7 @@ fn install_clone_template(dry_run: bool) -> Result<(), GitAiError> {
         bin_str
     );
     let post_checkout_path = template_hooks.join("post-checkout");
-    fs::write(&post_checkout_path, post_checkout)?;
+    write_hook_atomic(&post_checkout_path, post_checkout.as_bytes())?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -1199,7 +1199,7 @@ fn install_post_rewrite_hook(_binary_path: &Path, dry_run: bool) {
         }
     }
 
-    if let Err(e) = fs::write(&post_rewrite_path, POST_REWRITE_HOOK_CONTENT) {
+    if let Err(e) = write_hook_atomic(&post_rewrite_path, POST_REWRITE_HOOK_CONTENT.as_bytes()) {
         eprintln!("  ⚠ Failed to write post-rewrite hook: {}", e);
         return;
     }
@@ -1288,7 +1288,7 @@ fn install_husky_forwarder(hook_name: &str, dry_run: bool) {
         }
     };
 
-    if let Err(e) = fs::write(&target, &new_content) {
+    if let Err(e) = write_hook_atomic(&target, new_content.as_bytes()) {
         eprintln!("  ⚠ Failed to write .husky/{hook_name}: {e}");
         return;
     }
@@ -1305,6 +1305,57 @@ fn install_husky_forwarder(hook_name: &str, dry_run: bool) {
         "  ✓ husky {hook_name} forwarder installed: {}",
         target.display()
     );
+}
+
+/// 原子写 hook 文件：同目录 .tmp → 设权限 → fsync → rename。
+///
+/// hook（尤其 post-checkout）会在自身执行路径里被 install-hooks 重写；裸
+/// `fs::write`（O_TRUNC）期间，"正在执行的 shell / 并发读取的 git / clone 拷贝窗口"
+/// 可能读到截断中的半截内容（表现为 `unexpected EOF while looking for matching`）。
+/// rename 是原子替换，读者只会看到完整的新版或完整的旧版。
+///
+/// "相同则跳过"：内容与权限都已正确时直接返回——重复调用（如模板 post-checkout 里的
+/// 自动 install-hooks）不再重写文件，从源头消除"执行到一半被自我覆盖"。
+fn write_hook_atomic(path: &Path, content: &[u8]) -> std::io::Result<()> {
+    use std::fs;
+    use std::io::Write;
+
+    if let Ok(existing) = fs::read(path)
+        && existing == content
+    {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode_ok = fs::metadata(path)
+                .map(|m| m.permissions().mode() & 0o777 == 0o755)
+                .unwrap_or(false);
+            if !mode_ok {
+                let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o755));
+            }
+        }
+        return Ok(());
+    }
+
+    let tmp_path = path.with_extension("tmp");
+    {
+        let mut file = fs::File::create(&tmp_path)?;
+        file.write_all(content)?;
+        // 先设权限再 rename：可执行位随 inode 一起换过去，避免"已可读但未 chmod"的窗口。
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            file.set_permissions(fs::Permissions::from_mode(0o755))?;
+        }
+        file.sync_all()?;
+    }
+    fs::rename(&tmp_path, path)?;
+    // 尽力刷父目录（overlayfs/NFS 等可能不支持目录 fsync，失败忽略）。
+    if let Some(parent) = path.parent()
+        && let Ok(dir) = fs::File::open(parent)
+    {
+        let _ = dir.sync_all();
+    }
+    Ok(())
 }
 
 /// 修复历史 clone 模板遗留的 post-checkout：旧模板在【每次分支 checkout】都无条件
@@ -1376,7 +1427,7 @@ fn install_post_checkout_guard(binary_path: &Path, dry_run: bool) {
         }
     }
 
-    if replaced && fs::write(&post_checkout_path, out).is_ok() {
+    if replaced && write_hook_atomic(&post_checkout_path, out.as_bytes()).is_ok() {
         log_hook_install("post-checkout(guarded)", &post_checkout_path);
     }
 }
@@ -1430,7 +1481,7 @@ fn install_git_prepush_hook(binary_path: &Path, dry_run: bool) {
             return;
         }
         // ① 上报脚本写到备用名（幂等：每次重写，内容最新）
-        if let Err(e) = fs::write(&alt_script_path, &script) {
+        if let Err(e) = write_hook_atomic(&alt_script_path, script.as_bytes()) {
             eprintln!("  ⚠ Failed to write git-ai pre-push script: {}", e);
             return;
         }
@@ -1457,7 +1508,7 @@ fn install_git_prepush_hook(binary_path: &Path, dry_run: bool) {
             } else {
                 format!("{}{}", insert, existing)
             };
-            if let Err(e) = fs::write(&pre_push_path, &merged) {
+            if let Err(e) = write_hook_atomic(&pre_push_path, merged.as_bytes()) {
                 eprintln!("  ⚠ Failed to write pre-push hook: {}", e);
                 return;
             }
@@ -1488,7 +1539,7 @@ fn install_git_prepush_hook(binary_path: &Path, dry_run: bool) {
         eprintln!("  ⚠ Failed to create hooks dir: {}", e);
         return;
     }
-    if let Err(e) = fs::write(&pre_push_path, &script) {
+    if let Err(e) = write_hook_atomic(&pre_push_path, script.as_bytes()) {
         eprintln!("  ⚠ Failed to write pre-push hook: {}", e);
         return;
     }
@@ -1563,7 +1614,7 @@ fn install_git_prepush_hook(binary_path: &Path, dry_run: bool) {
             }
         };
 
-        if let Err(e) = fs::write(&husky_prepush, &new_content) {
+        if let Err(e) = write_hook_atomic(&husky_prepush, new_content.as_bytes()) {
             eprintln!("  ⚠ Failed to write .husky/pre-push: {}", e);
             return;
         }
@@ -1643,7 +1694,7 @@ fn install_standard_precommit_hook(binary_path: &Path, dry_run: bool) {
             );
             return;
         }
-        if let Err(e) = fs::write(&pre_commit_path, &merged) {
+        if let Err(e) = write_hook_atomic(&pre_commit_path, merged.as_bytes()) {
             eprintln!("  ⚠ Failed to write pre-commit hook: {}", e);
             return;
         }
@@ -1684,7 +1735,7 @@ fn install_standard_precommit_hook(binary_path: &Path, dry_run: bool) {
         eprintln!("  ⚠ Failed to create hooks dir: {}", e);
         return;
     }
-    if let Err(e) = fs::write(&pre_commit_path, &script) {
+    if let Err(e) = write_hook_atomic(&pre_commit_path, script.as_bytes()) {
         eprintln!("  ⚠ Failed to write pre-commit hook: {}", e);
         return;
     }
@@ -1773,7 +1824,7 @@ fn install_precommit_hook(binary_path: &Path, dry_run: bool) {
             format!("{} || true; {}\n", hook_cmd, trimmed)
         };
 
-        if let Err(e) = fs::write(&husky_precommit, &new_content) {
+        if let Err(e) = write_hook_atomic(&husky_precommit, new_content.as_bytes()) {
             eprintln!("  ⚠ Failed to write husky pre-commit: {}", e);
             return;
         }
