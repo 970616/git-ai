@@ -2495,23 +2495,38 @@ impl VirtualAttributions {
             // NFD.  Compute the NFC form once for all lookups in this iteration.
             let nfc_file_path: String = file_path.nfc().collect();
 
-            // 认领/检测出的改名目标：若其内容与来源（旧路径）一致（纯改名），
-            // 该条目自身（通常来自改名动作产生的粗粒度 KnownHuman 观察）不参与
-            // 归属，由来源条目接管——避免把 AI 内容记成人类。
-            if let Some(old_path) = rename_map
+            // 认领/检测出的改名目标：内容与来源（旧路径）完全一致（纯改名）时，
+            // 该条目自身（通常来自改名动作产生的粗粒度 KnownHuman 观察）整体不
+            // 参与归属，由来源条目接管；内容有差异（改名+小改）时按行让位——
+            // 见下方逐行处理中的 h_ 行过滤。
+            let claim_source_content: Option<&String> = rename_map
                 .iter()
                 .find(|(_, np)| {
                     np.as_str() == file_path.as_str() || np.as_str() == nfc_file_path.as_str()
                 })
-                .map(|(op, _)| op)
-                && let (Some(old_content), Some(new_content)) = (
-                    self.file_contents.get(old_path),
-                    self.file_contents.get(file_path),
-                )
+                .and_then(|(op, _)| self.file_contents.get(op));
+            if let (Some(old_content), Some(new_content)) =
+                (claim_source_content, self.file_contents.get(file_path))
                 && content_eq_ignoring_line_endings(old_content, new_content)
             {
                 continue;
             }
+            // 来源旧内容的行集合（trim 后）与该文件的行列表，用于"改名+小改"
+            // 场景下逐行判断哪些 h_ 行其实是搬运过来的旧内容（应让位给来源的
+            // AI 归属）。
+            let claim_source_lines: Option<HashSet<&str>> = claim_source_content.map(|c| {
+                c.lines()
+                    .map(|l| l.trim())
+                    .filter(|l| !l.is_empty())
+                    .collect()
+            });
+            let claim_target_lines: Option<Vec<&str>> = if claim_source_lines.is_some() {
+                self.file_contents
+                    .get(file_path)
+                    .map(|c| c.lines().collect())
+            } else {
+                None
+            };
 
             let rebased_line_attrs;
             let line_attrs = if let Some(snapshot) = &carryover_snapshot {
@@ -2573,6 +2588,20 @@ impl VirtualAttributions {
             for line_attr in line_attrs {
                 // Check each line individually
                 for workdir_line_num in line_attr.start_line..=line_attr.end_line {
+                    // 改名+小改：认领目标文件里"内容与来源旧内容相同"的 h_ 行
+                    // 是搬运过来的旧内容（AI 写的），让位给来源条目的 AI 归属；
+                    // 来源里没有的行（真手动新增）保留 h_。
+                    if line_attr.author_id.starts_with("h_")
+                        && let (Some(src_lines), Some(target_lines)) =
+                            (&claim_source_lines, &claim_target_lines)
+                        && let Some(line_text) = target_lines.get((workdir_line_num - 1) as usize)
+                    {
+                        let trimmed = line_text.trim();
+                        if !trimmed.is_empty() && src_lines.contains(trimmed) {
+                            continue;
+                        }
+                    }
+
                     // Check if this line is unstaged (in working directory but not in commit)
                     let is_unstaged = unstaged_lines.binary_search(&workdir_line_num).is_ok();
 
