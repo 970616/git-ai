@@ -1547,6 +1547,7 @@ fn collect_unstaged_hunks_from_snapshot(
     commit_sha: &str,
     pathspecs: Option<&HashSet<String>>,
     final_state_snapshot: &HashMap<String, String>,
+    rename_map: &HashMap<String, String>,
 ) -> Result<
     (
         HashMap<String, Vec<LineRange>>,
@@ -1561,6 +1562,13 @@ fn collect_unstaged_hunks_from_snapshot(
         Some(paths) => paths.iter().cloned().collect(),
         None => final_state_snapshot.keys().cloned().collect(),
     };
+    // 改名后的旧路径不参与未提交判定：其内容由认领目标（新路径）接管比对；
+    // 否则"旧路径在提交中已不存在、工作区快照中还有内容"会被整体误判为
+    // 未提交，把 AI 行错误地推进 INITIAL。
+    let file_paths: HashSet<String> = file_paths
+        .into_iter()
+        .filter(|p| !rename_map.contains_key(p.as_str()))
+        .collect();
 
     // Batch-read committed content for every file in two git spawns instead of
     // one (fast-reader-miss) spawn per file.
@@ -2417,7 +2425,13 @@ impl VirtualAttributions {
         };
         let (mut unstaged_hunks, pure_insertion_hunks) = if let Some(snapshot) = &carryover_snapshot
         {
-            collect_unstaged_hunks_from_snapshot(repo, commit_sha, effective_pathspecs, snapshot)?
+            collect_unstaged_hunks_from_snapshot(
+                repo,
+                commit_sha,
+                effective_pathspecs,
+                snapshot,
+                &rename_map,
+            )?
         } else {
             collect_unstaged_hunks(repo, commit_sha, effective_pathspecs)?
         };
@@ -2480,6 +2494,24 @@ impl VirtualAttributions {
             // Diff output keys are NFC-normalised, but working-log paths may be
             // NFD.  Compute the NFC form once for all lookups in this iteration.
             let nfc_file_path: String = file_path.nfc().collect();
+
+            // 认领/检测出的改名目标：若其内容与来源（旧路径）一致（纯改名），
+            // 该条目自身（通常来自改名动作产生的粗粒度 KnownHuman 观察）不参与
+            // 归属，由来源条目接管——避免把 AI 内容记成人类。
+            if let Some(old_path) = rename_map
+                .iter()
+                .find(|(_, np)| {
+                    np.as_str() == file_path.as_str() || np.as_str() == nfc_file_path.as_str()
+                })
+                .map(|(op, _)| op)
+                && let (Some(old_content), Some(new_content)) = (
+                    self.file_contents.get(old_path),
+                    self.file_contents.get(file_path),
+                )
+                && content_eq_ignoring_line_endings(old_content, new_content)
+            {
+                continue;
+            }
 
             let rebased_line_attrs;
             let line_attrs = if let Some(snapshot) = &carryover_snapshot {
