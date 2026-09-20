@@ -546,6 +546,17 @@ where
     // 注入 note metadata，随 note 一起持久化，供 `git ai show` 直接读取展示。
     authorship_log.metadata.stats = stats.clone();
 
+    // ===== 排除黑名单最终保底过滤（写 note 前最后一步）=====
+    // 上方 stats 段的"口径补漏"会在第一次保底过滤之后再次调用
+    // fill_unattributed_lines_as_human，把命中排除目录的文件重新写回
+    // attestations。保底过滤必须在【所有填充路径之后、写 note 之前】执行，
+    // 此处为最终位置——无论前面新增多少填充逻辑，写 note 前一律清除。
+    {
+        authorship_log
+            .attestations
+            .retain(|a| !should_exclude_checkpoint_path(&a.file_path));
+    }
+
     let authorship_note_str = authorship_log
         .serialize_to_string()
         .map_err(|_| GitAiError::Generic("Failed to serialize authorship log".to_string()))?;
@@ -751,6 +762,13 @@ fn fill_unattributed_lines_as_human(
 
     let mut unattributed: HashMap<String, Vec<u32>> = HashMap::new();
     for (file_path, line_ranges) in committed_hunks {
+        // 规则下沉：命中排除目录的文件不参与 human 兜底。
+        // 否则任何位于保底过滤之后的新增调用点（如 stats 段"口径补漏"）都会把
+        // 排除目录的文件重新写回 note，使保底过滤失效（进度条 0% 但归属列表仍
+        // 有该文件的行，平台按归属列表统计时被错记为人工）。
+        if should_exclude_checkpoint_path(file_path) {
+            continue;
+        }
         let existing = attributed_lines.get(file_path.as_str());
         let mut lines: Vec<u32> = Vec::new();
         for range in line_ranges {
