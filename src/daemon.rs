@@ -5725,6 +5725,23 @@ impl ActorDaemonCoordinator {
                                         old_head,
                                         new_head
                                     );
+                                    // 重置到分叉点（如多次 amend 形成的"兄弟提交"）时，
+                                    // 被丢弃提交的 note 里可能仍有停留在工作区的 AI 归属；
+                                    // 不重建的话，随后"原样重提"会让这些行全部落为 human
+                                    // （backward 分支已覆盖线性回退，这里补充分叉场景）。
+                                    // 重建函数按 new_tip..old_tip 收集被丢弃提交的 note，
+                                    // 对分叉与线性同样成立；best-effort：失败不阻断下方
+                                    // 既有的 rewrite 迁移路径。
+                                    if let Err(err) =
+                                        crate::authorship::rewrite_reset::reconstruct_working_log_after_backward_reset(
+                                            &repo, old_head, new_head,
+                                        )
+                                    {
+                                        tracing::warn!(
+                                            "reset (non-fast-forward): working log reconstruct failed: {}",
+                                            err
+                                        );
+                                    }
                                     let outcome =
                                         crate::authorship::rewrite::handle_rewrite_event_with_metrics(
                                         &repo,
