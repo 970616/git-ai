@@ -4841,6 +4841,18 @@ impl ActorDaemonCoordinator {
 
             // Fast-forward — not a rewrite
             if is_ancestor_commit(&repo, old_tip, new_tip) {
+                // FF 前移（pull/rebase/merge 快进）同样可能"携带换线"：工作区
+                // 未提交的 AI 打点仍挂在 old_tip 名下（autostash 是 git 内部的
+                // 隐式 stash，不被观察，打点不会被打包/恢复）。不迁移的话，
+                // 后续提交以 new_tip 为 base 读不到这批打点，AI 行会整批
+                // fallback 成 human（实测：rebase --autostash 场景丢失）。
+                // checkout/stash/reset 各有自己的迁移路径且不经过本函数；
+                // 无遗留打点时 has_working_log 为 false，直接跳过，不影响
+                // 既有行为。
+                if repo.storage.has_working_log(old_tip) {
+                    repo.storage.rename_working_log(old_tip, new_tip)?;
+                    tracing::info!("ff ref move: migrated working log {} -> {}", old_tip, new_tip);
+                }
                 continue;
             }
 
