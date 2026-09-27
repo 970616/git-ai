@@ -1011,6 +1011,109 @@ pub(crate) fn post_commit_amend_with_recovery_timestamps_detailed(
         }
     }
 
+    // ★ FIX(suixueqin merge+amend 形态)：从"被 amend 提交的 note"继承 AI 归属。
+    // amend 重建归属的来源只有"工作日志（账本）+ blame"；当 AI 归属已随上一次提交
+    // 固化进旧 note、账本被消费后，这些行会在 amend 时被降级为 human
+    // （"merge 提交含 A → 只改 B → amend" 100% 复现，1.1.1/1.1.2 均掉）。
+    // 这里对"内容未变（blob 相同）的文件"，把旧 note 的归属补录到
+    // "本次提交的变更行"中"尚未有归属"的行上（已有归属优先，不覆盖）。
+    if let Ok(original_log) = crate::git::notes_api::read_authorship_v3(repo, original_commit) {
+        if !original_log.attestations.is_empty() {
+            fn expand_ranges(
+                ranges: &[crate::authorship::authorship_log::LineRange],
+            ) -> Vec<u32> {
+                let mut lines = Vec::new();
+                for r in ranges {
+                    match r {
+                        crate::authorship::authorship_log::LineRange::Single(l) => {
+                            lines.push(*l)
+                        }
+                        crate::authorship::authorship_log::LineRange::Range(s, e) => {
+                            let mut l = *s;
+                            while l <= *e {
+                                lines.push(l);
+                                l += 1;
+                            }
+                        }
+                    }
+                }
+                lines.sort_unstable();
+                lines.dedup();
+                lines
+            }
+
+            let amended_tree = repo.find_commit(amended_commit.to_string())?.tree()?;
+            let original_tree = repo.find_commit(original_commit.to_string())?.tree()?;
+
+            // 新归属里"已被覆盖的行"（防覆盖：账本/blame 的结果优先）。
+            let mut covered: HashMap<String, Vec<u32>> = HashMap::new();
+            for fa in &authorship_log.attestations {
+                let mut all = Vec::new();
+                for e in &fa.entries {
+                    all.extend(expand_ranges(&e.line_ranges));
+                }
+                all.sort_unstable();
+                all.dedup();
+                covered.insert(fa.file_path.clone(), all);
+            }
+
+            // 先只读收集，再统一写入（避免借用冲突）。
+            let mut batches: Vec<(
+                String,
+                String,
+                Vec<crate::authorship::authorship_log::LineRange>,
+            )> = Vec::new();
+            for file_att in &original_log.attestations {
+                let p = std::path::Path::new(&file_att.file_path);
+                let same_blob = match (original_tree.get_path(p), amended_tree.get_path(p)) {
+                    (Ok(a), Ok(b)) => a.id() == b.id(),
+                    _ => false,
+                };
+                if !same_blob {
+                    continue;
+                }
+                let Some(committed) = recovery_hunks.get(&file_att.file_path) else {
+                    continue;
+                };
+                let committed_lines = expand_ranges(committed);
+                let covered_lines = covered.get(&file_att.file_path);
+
+                for entry in &file_att.entries {
+                    let mut to_add: Vec<u32> = Vec::new();
+                    for l in expand_ranges(&entry.line_ranges) {
+                        let in_committed = committed_lines.binary_search(&l).is_ok();
+                        let already = covered_lines
+                            .map(|v| v.binary_search(&l).is_ok())
+                            .unwrap_or(false);
+                        if in_committed && !already {
+                            to_add.push(l);
+                        }
+                    }
+                    if !to_add.is_empty() {
+                        batches.push((
+                            file_att.file_path.clone(),
+                            entry.hash.clone(),
+                            crate::authorship::authorship_log::LineRange::compress_lines(&to_add),
+                        ));
+                    }
+                }
+            }
+
+            for (path, hash, ranges) in batches {
+                let fa = authorship_log.get_or_create_file(&path);
+                if let Some(existing) = fa.entries.iter_mut().find(|e| e.hash == hash) {
+                    existing.line_ranges.extend(ranges);
+                } else {
+                    fa.add_entry(
+                        crate::authorship::authorship_log_serialization::AttestationEntry::new(
+                            hash, ranges,
+                        ),
+                    );
+                }
+            }
+        }
+    }
+
     // Inject custom attributes
     let custom_attrs = Config::fresh().custom_attributes().clone();
     if !custom_attrs.is_empty() {
