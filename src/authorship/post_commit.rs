@@ -1046,10 +1046,16 @@ pub(crate) fn post_commit_amend_with_recovery_timestamps_detailed(
             let original_tree = repo.find_commit(original_commit.to_string())?.tree()?;
 
             // 新归属里"已被覆盖的行"（防覆盖：账本/blame 的结果优先）。
+            // ★ h_（KnownHuman）是"无证据时的兜底"，不算"已归属"：
+            // 上游 recover_attribution 会把本次未归属的行先记成 h_，
+            // 若把它当"已覆盖"，旧 note 里的 s_ 就永远补不回来。
             let mut covered: HashMap<String, Vec<u32>> = HashMap::new();
             for fa in &authorship_log.attestations {
                 let mut all = Vec::new();
                 for e in &fa.entries {
+                    if e.hash.starts_with("h_") {
+                        continue;
+                    }
                     all.extend(expand_ranges(&e.line_ranges));
                 }
                 all.sort_unstable();
@@ -1101,6 +1107,13 @@ pub(crate) fn post_commit_amend_with_recovery_timestamps_detailed(
 
             for (path, hash, ranges) in batches {
                 let fa = authorship_log.get_or_create_file(&path);
+                // ★ 先让"同行的 h_（KnownHuman）"让位：把这些行从该文件的 h_ 条目里移除，
+                // 再写入旧 note 的 s_ 归属，避免同一行被 h_ 与 s_ 双重覆盖。
+                for e in fa.entries.iter_mut() {
+                    if e.hash.starts_with("h_") {
+                        e.remove_line_ranges(&ranges);
+                    }
+                }
                 if let Some(existing) = fa.entries.iter_mut().find(|e| e.hash == hash) {
                     existing.line_ranges.extend(ranges);
                 } else {
