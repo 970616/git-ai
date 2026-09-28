@@ -172,6 +172,16 @@ impl AuthorshipLog {
 
         // Write attestation section
         for file_attestation in &self.attestations {
+            // ★ 跳过"全部条目为空范围"的文件：空范围条目会序列化成 `  <hash> `
+            // （hash 后无范围、只剩尾空格），反序列化时 trim_end 后找不到分隔空格，
+            // 会让整条 note 解析失败而完全不可读。
+            if file_attestation
+                .entries
+                .iter()
+                .all(|e| e.line_ranges.is_empty())
+            {
+                continue;
+            }
             // Quote file names that contain spaces or whitespace
             let file_path = if needs_quoting(&file_attestation.file_path) {
                 format!("\"{}\"", &file_attestation.file_path)
@@ -182,6 +192,9 @@ impl AuthorshipLog {
             output.push('\n');
 
             for entry in &file_attestation.entries {
+                if entry.line_ranges.is_empty() {
+                    continue;
+                }
                 output.push_str("  ");
                 output.push_str(&entry.hash);
                 output.push(' ');
@@ -434,7 +447,10 @@ fn parse_attestation_section(
                     return Err("Attestation entry found without a file path".into());
                 }
             } else {
-                return Err(format!("Invalid attestation entry format: {}", entry_line).into());
+                // ★ 容错：`  <hash>`（hash 后无行范围）是空条目曾被写入 note 后的形态。
+                // 该条目无信息量，跳过它而不是让整条 note 解析失败（解析失败会导致
+                // 归属数据完全不可读，比丢弃一个空条目严重得多）。
+                continue;
             }
         } else {
             // File path line (not indented)

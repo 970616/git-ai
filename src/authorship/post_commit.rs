@@ -1114,6 +1114,9 @@ pub(crate) fn post_commit_amend_with_recovery_timestamps_detailed(
                         e.remove_line_ranges(&ranges);
                     }
                 }
+                // 让位后残留的空 h_ 条目直接删除（避免 note 里出现空范围条目）。
+                fa.entries
+                    .retain(|e| !(e.hash.starts_with("h_") && e.line_ranges.is_empty()));
                 if let Some(existing) = fa.entries.iter_mut().find(|e| e.hash == hash) {
                     existing.line_ranges.extend(ranges);
                 } else {
