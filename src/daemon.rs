@@ -5820,6 +5820,20 @@ impl ActorDaemonCoordinator {
                         &old_head,
                         &new_head,
                     )?;
+                } else {
+                    // ★ FIX(pull --rebase 重放丢归属)：非快进的 pull（即 pull --rebase
+                    // 把本地提交重放到远端之上）同样必须把 old_head 的工作日志目录
+                    // 迁移到 new_head——该目录里可能含有"还没提交的 AI 编辑打点"
+                    // （工作区在途文件）。不迁移的话，这些未提交打点会失联，
+                    // 后续提交时整批 fallback 成 human。
+                    // 实测：`pull --rebase --autostash`（有重放 + 在途文件）3/3 丢失，
+                    // 而同场景的本地 `git rebase`（走 rebase 处理链）归属完整——
+                    // 差异就在这里：pull 的非快进分支此前没有做工作日志迁移。
+                    apply_pull_fast_forward_working_log_side_effect(
+                        &worktree.to_string_lossy(),
+                        &old_head,
+                        &new_head,
+                    )?;
                 }
             }
         }

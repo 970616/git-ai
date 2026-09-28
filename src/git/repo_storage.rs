@@ -605,8 +605,21 @@ impl PersistedWorkingLog {
                 continue;
             }
 
-            let checkpoint: Checkpoint = serde_json::from_str(&line)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+            // ★ FIX(checkpoints 损坏归零)：单行损坏（例如写入过程中进程被中断，
+            // 或文件系统异常留下的半截行）不应让整个账本读成空。这里跳过坏行
+            // 继续解析，保住其余 AI 归属证据——否则读取端一旦返回空，
+            // 后续任何一次写入都会基于"空"重写账本，旧打点被永久洗掉。
+            let checkpoint: Checkpoint = match serde_json::from_str(&line) {
+                Ok(cp) => cp,
+                Err(e) => {
+                    tracing::warn!(
+                        "skipping malformed checkpoint line in {}: {}",
+                        checkpoints_file.display(),
+                        e
+                    );
+                    continue;
+                }
+            };
 
             if checkpoint.api_version != CHECKPOINT_API_VERSION {
                 tracing::debug!(
@@ -714,12 +727,11 @@ impl PersistedWorkingLog {
             })),
         );
 
-        match fs::remove_file(&checkpoints_file) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => return Err(error.into()),
-        }
-        fs::File::create(&checkpoints_file)?;
+        // ★ FIX(checkpoints 损坏归零)：同样用原子写（空临时文件 + rename 替换），
+        // 避免"先删旧文件、再重建新文件"之间进程被中断导致的文件缺失窗口。
+        let tmp_file = checkpoints_file.with_extension("jsonl.tmp");
+        fs::File::create(&tmp_file)?;
+        fs::rename(&tmp_file, &checkpoints_file)?;
         Ok(true)
     }
 
@@ -757,15 +769,23 @@ impl PersistedWorkingLog {
     /// for from_just_working_log() to read them.
     pub fn write_all_checkpoints(&self, checkpoints: &[Checkpoint]) -> Result<(), GitAiError> {
         let checkpoints_file = self.checkpoints_file();
-        let mut output = BufWriter::new(fs::File::create(&checkpoints_file)?);
+        // ★ FIX(checkpoints 损坏归零)：原子写——先写同目录临时文件、fsync 后 rename 整体替换。
+        // 原实现直接截断重写原文件：若写入过程中进程被中断（崩溃/沙箱异常/文件系统问题），
+        // 会留下半截损坏行；读取端遇到损坏行会把整个账本读空，后续写入再基于"空"重建，
+        // 旧打点被永久洗掉。rename 在文件系统层面是原子的：目标要么完整旧版、要么完整新版。
+        let tmp_file = checkpoints_file.with_extension("jsonl.tmp");
+        {
+            let mut output = BufWriter::new(fs::File::create(&tmp_file)?);
 
-        for checkpoint in checkpoints {
-            serde_json::to_writer(&mut output, checkpoint)?;
-            output.write_all(b"\n")?;
+            for checkpoint in checkpoints {
+                serde_json::to_writer(&mut output, checkpoint)?;
+                output.write_all(b"\n")?;
+            }
+
+            output.flush()?;
+            output.get_ref().sync_all()?;
         }
-
-        output.flush()?;
-        output.get_ref().sync_all()?;
+        fs::rename(&tmp_file, &checkpoints_file)?;
         Ok(())
     }
 
@@ -899,7 +919,11 @@ impl PersistedWorkingLog {
         };
 
         let json = serde_json::to_string_pretty(&initial_data)?;
-        fs::write(&self.initial_file, json)?;
+        // ★ FIX(checkpoints 损坏归零)：INITIAL 同样原子写（临时文件 + rename），
+        // 避免写入中途被中断留下损坏/半截的 INITIAL（读取端解析失败会丢失初始归属）。
+        let tmp_file = self.initial_file.with_extension("tmp");
+        fs::write(&tmp_file, json)?;
+        fs::rename(&tmp_file, &self.initial_file)?;
 
         Ok(())
     }
