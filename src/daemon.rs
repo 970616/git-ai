@@ -5814,7 +5814,15 @@ impl ActorDaemonCoordinator {
             let (old_head, new_head) = Self::resolve_heads_for_command(cmd);
             if !old_head.is_empty() && !new_head.is_empty() && old_head != new_head {
                 let repo = find_repository_in_path(&worktree.to_string_lossy())?;
-                if repo_is_ancestor(&repo, &old_head, &new_head) {
+                let fast_forward = repo_is_ancestor(&repo, &old_head, &new_head);
+                tracing::info!(
+                    "pull event: repo={} old_head={} new_head={} fast_forward={}",
+                    worktree.to_string_lossy(),
+                    old_head,
+                    new_head,
+                    fast_forward
+                );
+                if fast_forward {
                     apply_pull_fast_forward_working_log_side_effect(
                         &worktree.to_string_lossy(),
                         &old_head,
@@ -6818,6 +6826,9 @@ fn handle_control_connection_actor_reader<R: Read + Write>(
         let response = match parsed {
             Ok(req) => {
                 shutdown_after_response = matches!(req, ControlRequest::Shutdown);
+                if shutdown_after_response {
+                    tracing::info!("received Shutdown control request; stopping after response");
+                }
                 runtime_handle.block_on(async { coordinator.handle_control_request(req).await })
             }
             Err(e) => ControlResponse::err(format!("invalid control request: {}", e)),

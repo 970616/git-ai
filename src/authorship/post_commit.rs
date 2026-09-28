@@ -572,6 +572,7 @@ where
         commit = %commit_sha,
         ai_additions = note_ai_add,
         human_additions = note_human_add,
+        files = authorship_log.attestations.len(),
         "note written"
     );
 
@@ -1181,7 +1182,11 @@ pub(crate) fn post_commit_amend_with_recovery_timestamps_detailed(
     write_note(repo, amended_commit, &authorship_note_str)?;
 
     // note 生成记录（amend；排查"note 延迟/缺失"用）
-    tracing::info!(commit = %amended_commit, "note written (amend)");
+    tracing::info!(
+        commit = %amended_commit,
+        files = authorship_log.attestations.len(),
+        "note written (amend)"
+    );
 
     // Write INITIAL file for uncommitted attributions
     if !initial_attributions.files.is_empty() {

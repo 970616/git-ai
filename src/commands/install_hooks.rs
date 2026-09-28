@@ -253,7 +253,58 @@ fn remove_global_git_config_section(git_cmd: &str, section: &str) -> Result<(), 
     }
 }
 
-fn configure_daemon_trace2(dry_run: bool) -> Result<(), GitAiError> {
+/// 判断全局 git config 中的 trace2 段是否已处于 configure_daemon_trace2 的
+/// 期望状态（只含 eventTarget 与 eventNesting 两个键、且值匹配）。一致时
+/// 无需重写配置——重写会被调用方视为"配置变化"，进而重启 daemon。
+fn trace2_global_config_is_current(
+    git_cmd: &str,
+    expected_target: &str,
+    expected_nesting: &str,
+) -> bool {
+    let mut command = Command::new(git_cmd);
+    command
+        .args(["config", "--global", "--get-regexp", "^trace2\\."])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    crate::git::repository::apply_internal_git_env(&mut command);
+
+    let output = match command.output() {
+        Ok(output) => output,
+        Err(_) => return false,
+    };
+    // 没有任何 trace2.* 键时 git 以非零码退出（无匹配属于正常情况）。
+    if !output.status.success() {
+        return false;
+    }
+    let text = match String::from_utf8(output.stdout) {
+        Ok(text) => text,
+        Err(_) => return false,
+    };
+
+    let mut seen_target = false;
+    let mut seen_nesting = false;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let mut parts = line.splitn(2, char::is_whitespace);
+        let key = parts.next().unwrap_or("").to_ascii_lowercase();
+        let value = parts.next().unwrap_or("").trim();
+        match key.as_str() {
+            "trace2.eventtarget" if value == expected_target && !seen_target => {
+                seen_target = true;
+            }
+            "trace2.eventnesting" if value == expected_nesting && !seen_nesting => {
+                seen_nesting = true;
+            }
+            _ => return false,
+        }
+    }
+    seen_target && seen_nesting
+}
+
+fn configure_daemon_trace2(dry_run: bool) -> Result<bool, GitAiError> {
     let runtime_config = config::Config::fresh();
 
     ensure_global_git_config_dirs()?;
@@ -278,7 +329,19 @@ fn configure_daemon_trace2(dry_run: bool) -> Result<(), GitAiError> {
     let event_target = daemon_config.trace2_event_target();
 
     if dry_run {
-        return Ok(());
+        return Ok(false);
+    }
+
+    // 配置已处于期望状态：跳过重写。重写意味着"配置发生变化"，调用方据此
+    // 重启 daemon 让配置生效——而 checkout/rebase 触发的 auto-install 会
+    // 频繁走到这里，无谓的重启会打断 daemon 正在处理的 git 操作（如
+    // pull --rebase 中途的工作日志/归属迁移）。
+    if trace2_global_config_is_current(
+        runtime_config.git_cmd(),
+        &event_target,
+        TRACE2_EVENT_NESTING_VALUE,
+    ) {
+        return Ok(false);
     }
 
     // Fully reset any existing trace2 config the user may have set
@@ -296,10 +359,10 @@ fn configure_daemon_trace2(dry_run: bool) -> Result<(), GitAiError> {
         TRACE2_EVENT_NESTING_KEY,
         TRACE2_EVENT_NESTING_VALUE,
     )?;
-    Ok(())
+    Ok(true)
 }
 
-fn ensure_daemon(dry_run: bool) {
+fn ensure_daemon(dry_run: bool, daemon_trace2_changed: bool) {
     if dry_run {
         return;
     }
@@ -315,8 +378,19 @@ fn ensure_daemon(dry_run: bool) {
         return;
     };
 
+    // trace2 配置没有变化：不重启 daemon。重启会打断 daemon 正在处理的 git
+    // 操作——checkout/rebase 触发的 auto-install 尤其容易撞上进行中的
+    // pull/rebase 归属迁移，把在途的 AI 编辑打点直接打断丢失。只保证存活。
+    if !daemon_trace2_changed {
+        append_hooks_log("daemon: no restart (trace2 config unchanged)");
+        let _ =
+            crate::commands::daemon::ensure_daemon_running(std::time::Duration::from_secs(5));
+        return;
+    }
+
     // Restart daemon so it picks up the freshly-written trace2 config.
     // Uses soft shutdown → hard kill escalation if needed.
+    append_hooks_log("daemon: restart (trace2 config changed)");
     if let Err(e) = crate::commands::daemon::restart_daemon(&daemon_config) {
         eprintln!(
             "[git-ai] warning: failed to restart background service: {}",
@@ -343,10 +417,15 @@ pub fn run(args: &[String]) -> Result<HashMap<String, String>, GitAiError> {
 
     // Daemon trace2 config must be in place before any install work starts.
     // Non-fatal: the global git config may be read-only (e.g. Nix store symlink).
-    if let Err(e) = configure_daemon_trace2(options.dry_run) {
-        eprintln!("Warning: could not configure trace2 (non-fatal): {e}");
-    }
-    ensure_daemon(options.dry_run);
+    let daemon_trace2_changed = match configure_daemon_trace2(options.dry_run) {
+        Ok(changed) => changed,
+        Err(e) => {
+            eprintln!("Warning: could not configure trace2 (non-fatal): {e}");
+            // 配置状态未知：保守起见仍触发重启，确保 daemon 读到最新配置
+            true
+        }
+    };
+    ensure_daemon(options.dry_run, daemon_trace2_changed);
 
     // Now that the daemon is (re)started, initialize the telemetry handle so
     // that install-hooks metrics and observability events route through it.
@@ -1114,8 +1193,9 @@ fn install_clone_template(dry_run: bool) -> Result<(), GitAiError> {
 ///
 /// The hook reads the `gitai-report.endpoint` git config key.  When absent
 /// the hook exits immediately with no side effects.
-/// 记录 hook 安装/重装事件到 ~/.git-ai/hooks.log（排查"hook 被何时重装"用）。
-fn log_hook_install(hook_name: &str, path: &Path) {
+/// 向 ~/.git-ai/hooks.log 追加一行（带时间戳）。该文件用于排查
+/// "hook 何时被重装 / daemon 何时被重启"。
+fn append_hooks_log(line: &str) {
     use std::fs;
     use std::io::Write;
     let Ok(home) = std::env::var("HOME") else {
@@ -1139,14 +1219,13 @@ fn log_hook_install(hook_name: &str, path: &Path) {
         .append(true)
         .open(&log_path)
     {
-        let _ = writeln!(
-            f,
-            "{}  (re)install {}  -> {}",
-            ts_str,
-            hook_name,
-            path.display()
-        );
+        let _ = writeln!(f, "{}  {}", ts_str, line);
     }
+}
+
+/// 记录 hook 安装/重装事件到 ~/.git-ai/hooks.log（排查"hook 被何时重装"用）。
+fn log_hook_install(hook_name: &str, path: &Path) {
+    append_hooks_log(&format!("(re)install {}  -> {}", hook_name, path.display()));
 }
 
 /// 安装 post-rewrite hook：在 rebase/amend 完成时把旧提交的 AI note

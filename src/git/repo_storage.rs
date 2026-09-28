@@ -281,15 +281,16 @@ impl RepoStorage {
         let old_dir = self.working_logs.join(old_sha);
         let new_dir = self.working_logs.join(new_sha);
         if !old_dir.exists() {
+            tracing::info!("rename_working_log: no working log for old={} (skip)", old_sha);
             return Ok(());
         }
         if !new_dir.exists() {
             fs::rename(&old_dir, &new_dir)?;
-            tracing::debug!("Renamed working log from {} to {}", old_sha, new_sha);
+            tracing::info!("rename_working_log: renamed {} -> {}", old_sha, new_sha);
         } else {
             self.merge_working_log_dirs(old_sha, new_sha, &old_dir, &new_dir)?;
             fs::remove_dir_all(&old_dir)?;
-            tracing::debug!("Merged working log from {} into {}", old_sha, new_sha);
+            tracing::info!("rename_working_log: merged {} -> {}", old_sha, new_sha);
         }
         Ok(())
     }
