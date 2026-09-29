@@ -129,8 +129,19 @@ pub const DEFAULT_CHECKPOINT_EXCLUDE_PATTERNS: &[&str] = &[
     "**/poetry.lock",
 ];
 
+/// 文档类文件后缀：不参与代码统计（"文档不算代码"口径）。
+/// 需要追加其他后缀（如 "log,.csv"）用环境变量
+/// GITAI_CHECKPOINT_EXCLUDE_EXT（逗号分隔，可带点也可不带）。
+pub const DEFAULT_CHECKPOINT_EXCLUDE_EXTENSIONS: &[&str] = &[
+    // 通用文档
+    "md", "markdown", "mdx", "rst", "adoc", "asciidoc", "txt",
+    // 办公/出版文档
+    "doc", "docx", "pdf",
+];
+
 /// checkpoint 排除目录模式：默认 Top20 + AI 工具配置/锁文件等补充；
 /// 环境变量 GITAI_CHECKPOINT_EXCLUDE（逗号分隔）追加。追加项与默认项同名时去重。
+/// 另会附加文档后缀排除（见 DEFAULT_CHECKPOINT_EXCLUDE_EXTENSIONS）。
 pub fn checkpoint_exclude_patterns() -> Vec<String> {
     let mut patterns: Vec<String> = DEFAULT_CHECKPOINT_EXCLUDE_PATTERNS
         .iter()
@@ -141,6 +152,25 @@ pub fn checkpoint_exclude_patterns() -> Vec<String> {
             if !patterns.iter().any(|x| x == p) {
                 patterns.push(p.to_string());
             }
+        }
+    }
+    // 文档后缀排除：`*.md` 靠"纯文件名"兜底比对即覆盖任意层级
+    // （IgnoreMatcher::is_ignored 会同时用 path 与 filename 尝试 glob 匹配）。
+    let mut exts: Vec<String> = DEFAULT_CHECKPOINT_EXCLUDE_EXTENSIONS
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    if let Ok(extra) = std::env::var("GITAI_CHECKPOINT_EXCLUDE_EXT") {
+        for e in extra.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+            if !exts.iter().any(|x| x == e) {
+                exts.push(e.to_string());
+            }
+        }
+    }
+    for ext in exts {
+        let pattern = format!("*.{}", ext.trim_start_matches('.'));
+        if !patterns.iter().any(|x| x == &pattern) {
+            patterns.push(pattern);
         }
     }
     patterns
@@ -589,6 +619,41 @@ mod tests {
             "src/vendor.ts",                    // 但文件不是目录内
             "src/views/Home.vue",
         ] {
+            assert!(
+                !should_ignore_file_with_matcher(path, &matcher),
+                "不应排除: {path}"
+            );
+        }
+    }
+
+    #[test]
+    fn checkpoint_exclude_doc_suffixes() {
+        let patterns: Vec<String> = DEFAULT_CHECKPOINT_EXCLUDE_EXTENSIONS
+            .iter()
+            .map(|e| format!("*.{}", e))
+            .collect();
+        let matcher = build_ignore_matcher(&patterns);
+
+        // 任意层级的文档（含根目录）都应被排除
+        for path in [
+            "README.md",
+            "docs/guide.md",
+            "src/skills/x/SKILL.md",
+            "docs/manual.rst",
+            "notes.markdown",
+            "docs/flow.mdx",
+            "docs/notes.txt",
+            "design/spec.docx",
+            "docs/arch.pdf",
+            "docs/adr.adoc",
+        ] {
+            assert!(
+                should_ignore_file_with_matcher(path, &matcher),
+                "应当排除: {path}"
+            );
+        }
+        // 代码/配置后缀不应受影响
+        for path in ["src/main.rs", "src/app.vue", "config/app.yml", "docs/schema.sql"] {
             assert!(
                 !should_ignore_file_with_matcher(path, &matcher),
                 "不应排除: {path}"

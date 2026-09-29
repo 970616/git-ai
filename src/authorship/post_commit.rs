@@ -576,6 +576,30 @@ where
         "note written"
     );
 
+    // 排查信号（纯日志，不影响归属逻辑）：整条 note 没有任何 AI 条目时，
+    // 大概率是"AI 编辑打点未跟到本次提交"（如 reset/迁移缺口），
+    // 列出无 AI 名分的文件便于直接定位丢失范围。
+    if !authorship_log.attestations.is_empty()
+        && !authorship_log
+            .attestations
+            .iter()
+            .any(|a| a.entries.iter().any(|e| !e.hash.starts_with("h_")))
+    {
+        let human_only: Vec<&str> = authorship_log
+            .attestations
+            .iter()
+            .map(|a| a.file_path.as_str())
+            .take(10)
+            .collect();
+        tracing::warn!(
+            commit = %commit_sha,
+            human_additions = note_human_add,
+            files = authorship_log.attestations.len(),
+            human_only_files = ?human_only,
+            "note: no AI evidence in this commit (possible attribution loss); listing first human-only files"
+        );
+    }
+
     // Record metrics only when we have full stats（移到 write_note 之后，因为依赖 authorship_note_str）。
     if let Some(computed) = computed_for_metrics {
         record_commit_metrics(
@@ -1187,6 +1211,27 @@ pub(crate) fn post_commit_amend_with_recovery_timestamps_detailed(
         files = authorship_log.attestations.len(),
         "note written (amend)"
     );
+
+    // 排查信号（纯日志）：整条 note 无任何 AI 条目时提示疑似归属丢失。
+    if !authorship_log.attestations.is_empty()
+        && !authorship_log
+            .attestations
+            .iter()
+            .any(|a| a.entries.iter().any(|e| !e.hash.starts_with("h_")))
+    {
+        let human_only: Vec<&str> = authorship_log
+            .attestations
+            .iter()
+            .map(|a| a.file_path.as_str())
+            .take(10)
+            .collect();
+        tracing::warn!(
+            commit = %amended_commit,
+            files = authorship_log.attestations.len(),
+            human_only_files = ?human_only,
+            "note (amend): no AI evidence in this commit (possible attribution loss); listing first human-only files"
+        );
+    }
 
     // Write INITIAL file for uncommitted attributions
     if !initial_attributions.files.is_empty() {

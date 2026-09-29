@@ -5768,11 +5768,21 @@ impl ActorDaemonCoordinator {
                                         outcome.metric_commits,
                                     );
                                 } else {
+                                    // ★ FIX(forward reset 丢归属)：向前重置（如
+                                    // `git reset --soft <更新/远端的提交>`，把后代提交
+                                    // "吃进来"后一次性打包重提）时，工作区里"在 old_head
+                                    // 上未提交的 AI 编辑"仍被保留，其打点位于
+                                    // working_logs/<old_head>/。重置后 HEAD 变为 new_head，
+                                    // 随后重提时 daemon 只读 new_head 目录——不迁移的话这
+                                    // 批在途打点全部失联、整批被判 human。
+                                    // 实测：旧版本上编辑 → `reset --soft <后代>` → 重提 →
+                                    // 新加内容归属全部丢失；本迁移即修复该缺口。
                                     tracing::info!(
-                                        "reset (forward): {} -> {}; nothing to reconstruct",
+                                        "reset (forward): migrating working log {} -> {}",
                                         old_head,
                                         new_head
                                     );
+                                    repo.storage.rename_working_log(old_head, new_head)?;
                                 }
                             }
                         }
