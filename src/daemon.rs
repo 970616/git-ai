@@ -2004,6 +2004,28 @@ fn apply_cherry_pick_complete_rewrite(
     Ok(())
 }
 
+/// 读取并删除 cherry-pick 手工收尾标记（pre-commit hook 写入
+/// `$GIT_DIR/git-ai-cherry-pick-pending`，两行：源提交 sha、提交前 HEAD）。
+/// 无论内容是否有效都删除——每次 pre-commit 都会刷新/清除该文件，
+/// 残留只会是"标记写入后提交被中止"的过期状态。返回 (源提交, 提交前 HEAD)。
+fn take_cherry_pick_pending_marker(
+    repo: &crate::git::repository::Repository,
+) -> Result<Option<(String, String)>, GitAiError> {
+    let marker = repo.path().join("git-ai-cherry-pick-pending");
+    if !marker.exists() {
+        return Ok(None);
+    }
+    let content = std::fs::read_to_string(&marker).unwrap_or_default();
+    let _ = std::fs::remove_file(&marker);
+    let mut lines = content.lines();
+    let source = lines.next().unwrap_or("").trim().to_string();
+    let head = lines.next().unwrap_or("").trim().to_string();
+    if source.is_empty() || head.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some((source, head)))
+}
+
 fn apply_cherry_pick_no_commit_rewrite(
     repo: &crate::git::repository::Repository,
     sources: &[String],
@@ -5646,6 +5668,28 @@ impl ActorDaemonCoordinator {
                                         worktree.as_ref(),
                                         pending.source_commits,
                                         pending.head,
+                                    )?;
+                                }
+                            }
+
+                            // ★ cherry-pick 手工收尾（fix 2026-10）：cherry-pick
+                            // 冲突解决后用户直接 `git commit`（非 --continue）时，
+                            // daemon 收到的是 commit 事件、不触发 CherryPickComplete
+                            // 继承链 → 搬来的 AI 归属全量兜底成 human（weimaoquan
+                            // f7c7695b 类案例）。pre-commit hook 会把"源提交 +
+                            // 提交前 HEAD"写进标记文件——这里消费标记并补走与
+                            // --continue 完全相同的继承链（note 转移 + 行号按
+                            // source→dest diff 平移 + 与本次结算结果合并）。
+                            if cmd.primary_command.as_deref() == Some("commit")
+                                && let Some((source, marker_head)) =
+                                    take_cherry_pick_pending_marker(&repo)?
+                            {
+                                if base.as_deref() == Some(marker_head.as_str()) {
+                                    apply_cherry_pick_complete_rewrite(
+                                        &repo,
+                                        &marker_head,
+                                        &[source],
+                                        &[new_head.to_string()],
                                     )?;
                                 }
                             }

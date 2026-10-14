@@ -1097,6 +1097,44 @@ fn normalize_head_rev(rev: &str) -> String {
     rev.to_string()
 }
 
+/// cherry-pick 手工收尾的 pending 标记（fix 2026-10）：冲突解决后执行
+/// `git commit` 时，此刻 `.git/CHERRY_PICK_HEAD` 仍存在（commit 完成后会被
+/// git 删除，异步结算时已看不到）。把"源提交 + 当前 HEAD"写入
+/// `$GIT_DIR/git-ai-cherry-pick-pending`，daemon 在随后的 commit 事件里消费
+/// 并补走 CherryPickComplete 归属继承链（--continue 有自己的事件链，
+/// 手工 commit 没有——这里补上）。非 cherry-pick 态时清理残留标记。
+fn record_or_clear_cherry_pick_pending(root: &str) {
+    use std::process::Command;
+    let git_dir = match Command::new("git")
+        .args(["-C", root, "rev-parse", "--absolute-git-dir"])
+        .output()
+    {
+        Ok(o) if o.status.success() => std::path::PathBuf::from(
+            String::from_utf8_lossy(&o.stdout).trim().to_string(),
+        ),
+        _ => return,
+    };
+    let marker = git_dir.join("git-ai-cherry-pick-pending");
+    if !git_dir.join("CHERRY_PICK_HEAD").exists() {
+        let _ = std::fs::remove_file(&marker);
+        return;
+    }
+    let source = std::fs::read_to_string(git_dir.join("CHERRY_PICK_HEAD"))
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default();
+    let head = Command::new("git")
+        .args(["-C", root, "rev-parse", "HEAD"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+    if source.is_empty() || head.is_empty() {
+        return;
+    }
+    let _ = std::fs::write(&marker, format!("{}\n{}\n", source, head));
+}
+
 /// Handle `git ai hook <type>` subcommand.
 /// Currently supports `pre-commit`: runs mock_known_human checkpoint for
 /// all staged files under a configurable include path (default: src/).
@@ -1128,6 +1166,10 @@ fn handle_hook(args: &[String]) {
         }
         _ => return,
     };
+
+    // cherry-pick 手工收尾标记：必须在任何 early return 之前执行
+    //（没暂存文件/无可打点文件时也要刷新或清理标记）。
+    record_or_clear_cherry_pick_pending(&root);
 
     let changed = match Command::new("git")
         .args(["diff", "--cached", "--name-only", "--diff-filter=AM"])

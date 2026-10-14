@@ -460,12 +460,16 @@ where
     let mut computed_for_metrics: Option<crate::authorship::stats::CommitStats> = None;
     let mut hunks_json_for_metrics: Option<String> = None;
 
+    // 合并提交（双 parent）判定：merge 的 stats 跳过与写 note 前归属清零共用。
+    // parent 数从提交对象读取——提交完成后依然可查，不依赖 MERGE_HEAD 等
+    // 操作态文件（后者在 commit 完成时即被 git 清理）。
+    let is_merge_commit = repo
+        .find_commit(commit_sha.clone())
+        .map(|commit| commit.parent_count().unwrap_or(0) > 1)
+        .unwrap_or(false);
+
     if options.compute_stats {
         let stats_diff_base = single_commit_diff_base(&parent_sha, &commit_sha);
-        let is_merge_commit = repo
-            .find_commit(commit_sha.clone())
-            .map(|commit| commit.parent_count().unwrap_or(0) > 1)
-            .unwrap_or(false);
         let ignore_patterns = effective_ignore_patterns(repo, &[], &[]);
         skip_reason = if is_merge_commit {
             Some(StatsSkipReason::MergeCommit)
@@ -555,6 +559,25 @@ where
         authorship_log
             .attestations
             .retain(|a| !should_exclude_checkpoint_path(&a.file_path));
+    }
+
+    // ★ 合并提交（双 parent）归属清零（写 note 前最后一步）：
+    // merge 提交相对第一父的差异 = 被并入线全量，本机对这些行没有证据 →
+    // 结算会把被并入分支的内容（含解冲突时自己改动过的 AI 行）全部兜底记为
+    // 提交者的 human，push 上报后造成人工虚增（gaoyue5/huxiaofeng1 类案例）。
+    // 对齐既有设计（merge 的 stats 已跳过）：清空归属条目、不写 stats，
+    // 仅保留 note 外壳——push 照常上报（平台可见该提交、0 行归属），
+    // 被并入线的真实归属留在其原提交的 note 上，不在此处重复计入。
+    if is_merge_commit {
+        if !authorship_log.attestations.is_empty() {
+            tracing::info!(
+                commit = %commit_sha,
+                files = authorship_log.attestations.len(),
+                "merge commit (double-parent): clearing attribution before writing note"
+            );
+        }
+        authorship_log.attestations.clear();
+        authorship_log.metadata.stats = None;
     }
 
     let authorship_note_str = authorship_log
@@ -1198,6 +1221,25 @@ pub(crate) fn post_commit_amend_with_recovery_timestamps_detailed(
         })()
         .unwrap_or(None);
         authorship_log.metadata.stats = stats;
+    }
+
+    // ★ 合并提交（双 parent）归属清零（amend 路径，与正常提交路径一致）：
+    // amend 一笔合并提交时 parent 数原样保留为 2——清空归属条目、不写 stats，
+    // 仅留 note 外壳，避免被并入线全量被兜底记成提交者 human（同上文说明）。
+    let amend_is_merge = repo
+        .find_commit(amended_commit.to_string())
+        .map(|c| c.parent_count().unwrap_or(0) > 1)
+        .unwrap_or(false);
+    if amend_is_merge {
+        if !authorship_log.attestations.is_empty() {
+            tracing::info!(
+                commit = %amended_commit,
+                files = authorship_log.attestations.len(),
+                "merge commit (double-parent): clearing attribution before writing note (amend)"
+            );
+        }
+        authorship_log.attestations.clear();
+        authorship_log.metadata.stats = None;
     }
 
     let authorship_note_str = authorship_log

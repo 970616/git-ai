@@ -2201,22 +2201,35 @@ def main():
         branch = target_branch(remote_ref)
         for commit in commits_to_push(local_sha, remote_sha, remote_name):
             note = git("notes", "--ref=%s" % notes_ref, "show", commit)
+            waited = False
             if not note.strip():
-                # note 由 daemon 异步生成：等待重试（最多约 6 秒），
-                # 覆盖"提交后立即推送"导致 note 尚未落盘的场景。
-                for _retry in range(12):
-                    time.sleep(0.5)
-                    note = git("notes", "--ref=%s" % notes_ref, "show", commit)
-                    if note.strip():
-                        break
+                # note 由 daemon 异步生成。只有"刚提交"的提交值得等待
+                # （覆盖"提交后立即推送"时 note 尚未落盘的窗口，10 分钟内）；
+                # 更早的提交（如分支对齐时从远端带入的外来提交）本机没有账、
+                # note 永远不会出现，等待纯属浪费——逐笔 6 秒在大批量场景
+                # （落后几十笔的分支）会累积成分钟级卡顿。
+                fresh = True
+                _ct = git("log", "-1", "--format=%ct", commit).strip()
+                if _ct:
+                    try:
+                        fresh = (time.time() - int(_ct)) < 600
+                    except Exception:
+                        fresh = True
+                if fresh:
+                    waited = True
+                    for _retry in range(12):
+                        time.sleep(0.5)
+                        note = git("notes", "--ref=%s" % notes_ref, "show", commit)
+                        if note.strip():
+                            break
             if not note.strip():
                 # 仍无 note：尝试按 patch-id 兜底迁移（rebase/cherry-pick/
                 # 手工重放后 note 未随新提交迁移的场景）。
                 note = migrate_note_by_patch_id(commit, notes_ref)
             if not note.strip():
                 sys.stderr.write(
-                    "[git-ai-report] SKIP %s: no note (waited ~6s, no patch-id match)\n"
-                    % commit[:12])
+                    "[git-ai-report] SKIP %s: no note (%s, no patch-id match)\n"
+                    % (commit[:12], "waited ~6s" if waited else "stale commit"))
                 report_log("commit=%s  result=skip  reason=no-note" % commit[:12])
                 continue
             files, meta = parse_note(note)
@@ -2392,11 +2405,14 @@ mod tests {
     fn pre_push_hook_waits_and_falls_back_for_missing_notes() {
         // "提交后秒推"：读不到 note 时应等待重试，而不是直接跳过上报
         assert!(PRE_PUSH_HOOK_CONTENT.contains("for _retry in range(12)"));
+        // 只有"刚提交"的才等待：按提交时间戳判断，老提交（外来）不白等
+        assert!(PRE_PUSH_HOOK_CONTENT.contains("--format=%ct"));
+        assert!(PRE_PUSH_HOOK_CONTENT.contains("\"stale commit\""));
         // rebase/cherry-pick/手工重放：无 note 时按 patch-id 兜底迁移
         assert!(PRE_PUSH_HOOK_CONTENT.contains("migrate_note_by_patch_id"));
         assert!(PRE_PUSH_HOOK_CONTENT.contains("_stable_patch_id"));
         // 跳过时给出可观测提示（不再静默）
-        assert!(PRE_PUSH_HOOK_CONTENT.contains("no note (waited ~6s"));
+        assert!(PRE_PUSH_HOOK_CONTENT.contains("no note (%s, no patch-id match)"));
     }
 
     #[test]
