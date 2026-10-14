@@ -2004,11 +2004,12 @@ fn apply_cherry_pick_complete_rewrite(
     Ok(())
 }
 
-/// 读取并删除 cherry-pick 手工收尾标记（pre-commit hook 写入
+/// 读取 cherry-pick 手工收尾标记（pre-commit hook 写入
 /// `$GIT_DIR/git-ai-cherry-pick-pending`，两行：源提交 sha、提交前 HEAD）。
-/// 无论内容是否有效都删除——每次 pre-commit 都会刷新/清除该文件，
-/// 残留只会是"标记写入后提交被中止"的过期状态。返回 (源提交, 提交前 HEAD)。
-fn take_cherry_pick_pending_marker(
+/// 只读不删——daemon 的 commit 事件处理是异步、可能错位的（更早的 commit
+/// 事件可能在标记写好之后才被处理并"偷吃"标记），若读到时即删除，真正
+/// 对应的收尾提交反而拿不到继承。匹配（base == 标记里的 HEAD）才删。
+fn peek_cherry_pick_pending_marker(
     repo: &crate::git::repository::Repository,
 ) -> Result<Option<(String, String)>, GitAiError> {
     let marker = repo.path().join("git-ai-cherry-pick-pending");
@@ -2016,7 +2017,6 @@ fn take_cherry_pick_pending_marker(
         return Ok(None);
     }
     let content = std::fs::read_to_string(&marker).unwrap_or_default();
-    let _ = std::fs::remove_file(&marker);
     let mut lines = content.lines();
     let source = lines.next().unwrap_or("").trim().to_string();
     let head = lines.next().unwrap_or("").trim().to_string();
@@ -2024,6 +2024,11 @@ fn take_cherry_pick_pending_marker(
         return Ok(None);
     }
     Ok(Some((source, head)))
+}
+
+/// 删除 cherry-pick 手工收尾标记（仅在成功匹配并消费后调用；失败忽略）。
+fn remove_cherry_pick_pending_marker(repo: &crate::git::repository::Repository) {
+    let _ = std::fs::remove_file(repo.path().join("git-ai-cherry-pick-pending"));
 }
 
 fn apply_cherry_pick_no_commit_rewrite(
@@ -5682,17 +5687,17 @@ impl ActorDaemonCoordinator {
                             // source→dest diff 平移 + 与本次结算结果合并）。
                             if cmd.primary_command.as_deref() == Some("commit")
                                 && let Some((source, marker_head)) =
-                                    take_cherry_pick_pending_marker(&repo)?
+                                    peek_cherry_pick_pending_marker(&repo)?
                             {
-                                tracing::info!(
-                                    repo = %worktree,
-                                    source = %source,
-                                    marker_head = %marker_head,
-                                    new_head = %new_head,
-                                    base = ?base,
-                                    "cherry-pick pending marker consumed"
-                                );
                                 if base.as_deref() == Some(marker_head.as_str()) {
+                                    remove_cherry_pick_pending_marker(&repo);
+                                    tracing::info!(
+                                        repo = %worktree,
+                                        source = %source,
+                                        marker_head = %marker_head,
+                                        new_head = %new_head,
+                                        "cherry-pick pending marker consumed"
+                                    );
                                     apply_cherry_pick_complete_rewrite(
                                         &repo,
                                         &marker_head,
@@ -5705,11 +5710,15 @@ impl ActorDaemonCoordinator {
                                         "cherry-pick pending inheritance applied"
                                     );
                                 } else {
-                                    tracing::warn!(
+                                    // 错位事件（更早的 commit 处理延迟到了标记写入之后）：
+                                    // 保留标记，留给真正对应的收尾提交事件；陈旧标记由
+                                    // pre-commit 的清理分支（无 CHERRY_PICK_HEAD 时删除）回收。
+                                    tracing::info!(
                                         repo = %worktree,
                                         marker_head = %marker_head,
                                         base = ?base,
-                                        "cherry-pick pending marker head mismatch; inheritance skipped"
+                                        new_head = %new_head,
+                                        "cherry-pick pending marker kept (base mismatch, awaiting matching commit event)"
                                     );
                                 }
                             }
