@@ -5684,6 +5684,14 @@ impl ActorDaemonCoordinator {
                                 && let Some((source, marker_head)) =
                                     take_cherry_pick_pending_marker(&repo)?
                             {
+                                tracing::info!(
+                                    repo = %worktree,
+                                    source = %source,
+                                    marker_head = %marker_head,
+                                    new_head = %new_head,
+                                    base = ?base,
+                                    "cherry-pick pending marker consumed"
+                                );
                                 if base.as_deref() == Some(marker_head.as_str()) {
                                     apply_cherry_pick_complete_rewrite(
                                         &repo,
@@ -5691,6 +5699,18 @@ impl ActorDaemonCoordinator {
                                         &[source],
                                         &[new_head.to_string()],
                                     )?;
+                                    tracing::info!(
+                                        repo = %worktree,
+                                        new_head = %new_head,
+                                        "cherry-pick pending inheritance applied"
+                                    );
+                                } else {
+                                    tracing::warn!(
+                                        repo = %worktree,
+                                        marker_head = %marker_head,
+                                        base = ?base,
+                                        "cherry-pick pending marker head mismatch; inheritance skipped"
+                                    );
                                 }
                             }
                         }

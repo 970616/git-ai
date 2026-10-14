@@ -1097,48 +1097,175 @@ fn normalize_head_rev(rev: &str) -> String {
     rev.to_string()
 }
 
+/// cherry-pick 手工收尾标记的诊断日志（追加到 ~/.git-ai/hook-debug.log；
+/// 仅在 cherry-pick 态或异常路径写入，正常普通提交零写入；超 1MB 清空重置）。
+fn cherry_pick_marker_debug_log(msg: &str) {
+    let path = match std::env::var("HOME") {
+        Ok(h) if !h.is_empty() => std::path::PathBuf::from(h)
+            .join(".git-ai")
+            .join("hook-debug.log"),
+        _ => std::path::PathBuf::from("/tmp/git-ai-hook-debug.log"),
+    };
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if std::fs::metadata(&path).map(|m| m.len() > 1024 * 1024).unwrap_or(false) {
+        let _ = std::fs::remove_file(&path);
+    }
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        use std::io::Write;
+        let _ = writeln!(f, "{} {}", ts, msg);
+    }
+}
+
+/// 解析本仓 git 目录（pre-commit hook 场景，cwd = worktree 根）。
+/// 顺序：cwd/.git（HEAD 文件校验）→ `git rev-parse --absolute-git-dir`
+/// （重试 2 次，结果同样用 HEAD 校验）→ GIT_DIR 环境变量。
+/// 全部失败返回 None。
+fn resolve_git_dir_for_hook() -> Option<std::path::PathBuf> {
+    use std::process::Command;
+    let wd = std::env::current_dir().ok()?;
+    let cand = wd.join(".git");
+    if cand.join("HEAD").exists() {
+        return Some(cand);
+    }
+    for _ in 0..2 {
+        if let Ok(o) = Command::new("git")
+            .args(["rev-parse", "--absolute-git-dir"])
+            .output()
+        {
+            if o.status.success() {
+                let p = std::path::PathBuf::from(
+                    String::from_utf8_lossy(&o.stdout).trim().to_string(),
+                );
+                if p.join("HEAD").exists() {
+                    return Some(p);
+                }
+                // `--absolute-git-dir` 在个别 GIT_DIR 取值下可能返回 worktree 根
+                let p2 = p.join(".git");
+                if p2.join("HEAD").exists() {
+                    return Some(p2);
+                }
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    if let Ok(v) = std::env::var("GIT_DIR") {
+        let v = v.trim();
+        if !v.is_empty() {
+            let p = std::path::Path::new(v);
+            let p = if p.is_absolute() { p.to_path_buf() } else { wd.join(p) };
+            if p.join("HEAD").exists() {
+                return Some(p);
+            }
+        }
+    }
+    None
+}
+
 /// cherry-pick 手工收尾的 pending 标记（fix 2026-10）：冲突解决后执行
 /// `git commit` 时，此刻 `.git/CHERRY_PICK_HEAD` 仍存在（commit 完成后会被
 /// git 删除，异步结算时已看不到）。把"源提交 + 当前 HEAD"写入
 /// `$GIT_DIR/git-ai-cherry-pick-pending`，daemon 在随后的 commit 事件里消费
 /// 并补走 CherryPickComplete 归属继承链（--continue 有自己的事件链，
 /// 手工 commit 没有——这里补上）。非 cherry-pick 态时清理残留标记。
-fn record_or_clear_cherry_pick_pending(root: &str) {
+///
+/// 稳定性加固（现场观测：偶发未写标记 ~1/3，环境层调用均正常）：
+/// 不依赖上游传入的 root、不依赖任何单一路径推断——cwd/.git 直取优先 +
+/// HEAD 文件校验 + 多级兜底 + 每步重试；读/写失败、路径解析失败均写诊断
+/// 日志（hook-debug.log），保证残留问题下一轮必然可观测。
+fn record_or_clear_cherry_pick_pending() {
     use std::process::Command;
-    let git_dir = match Command::new("git")
-        .args(["-C", root, "rev-parse", "--absolute-git-dir"])
-        .output()
-    {
-        Ok(o) if o.status.success() => std::path::PathBuf::from(
-            String::from_utf8_lossy(&o.stdout).trim().to_string(),
-        ),
-        _ => return,
+    let Some(git_dir) = resolve_git_dir_for_hook() else {
+        cherry_pick_marker_debug_log("cherry-pick pending: git dir unresolved (skipped)");
+        return;
     };
     let marker = git_dir.join("git-ai-cherry-pick-pending");
-    if !git_dir.join("CHERRY_PICK_HEAD").exists() {
-        let _ = std::fs::remove_file(&marker);
+    let cp_head = git_dir.join("CHERRY_PICK_HEAD");
+    if !cp_head.exists() {
+        if marker.exists() {
+            let _ = std::fs::remove_file(&marker);
+        }
         return;
     }
-    let source = std::fs::read_to_string(git_dir.join("CHERRY_PICK_HEAD"))
-        .map(|s| s.trim().to_string())
-        .unwrap_or_default();
-    let head = Command::new("git")
-        .args(["-C", root, "rev-parse", "HEAD"])
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .unwrap_or_default();
-    if source.is_empty() || head.is_empty() {
+    let mut source = String::new();
+    for _ in 0..2 {
+        source = std::fs::read_to_string(&cp_head)
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+        if !source.is_empty() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    if source.is_empty() {
+        cherry_pick_marker_debug_log(&format!(
+            "cherry-pick pending: CHERRY_PICK_HEAD unreadable at {}",
+            cp_head.display()
+        ));
         return;
     }
-    let _ = std::fs::write(&marker, format!("{}\n{}\n", source, head));
+    let mut head = String::new();
+    for _ in 0..2 {
+        if let Ok(o) = Command::new("git")
+            .args(["--git-dir"])
+            .arg(&git_dir)
+            .args(["rev-parse", "HEAD"])
+            .output()
+        {
+            if o.status.success() {
+                head = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                if !head.is_empty() {
+                    break;
+                }
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    if head.is_empty() {
+        cherry_pick_marker_debug_log("cherry-pick pending: HEAD unreadable (skipped)");
+        return;
+    }
+    let content = format!("{}\n{}\n", source, head);
+    let mut written = false;
+    for _ in 0..2 {
+        if std::fs::write(&marker, &content).is_ok() {
+            written = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    let short = |s: &str| s.chars().take(8).collect::<String>();
+    if written {
+        cherry_pick_marker_debug_log(&format!(
+            "cherry-pick pending written: head={} source={}",
+            short(&head),
+            short(&source)
+        ));
+    } else {
+        cherry_pick_marker_debug_log(&format!(
+            "cherry-pick pending WRITE FAILED: {}",
+            marker.display()
+        ));
+    }
 }
 
 /// Handle `git ai hook <type>` subcommand.
 /// Currently supports `pre-commit`: runs mock_known_human checkpoint for
 /// all staged files under a configurable include path (default: src/).
 fn handle_hook(args: &[String]) {
+    // cherry-pick 手工收尾标记：最先执行——在任何早退路径（参数/仓库解析失败、
+    // 无暂存文件等）之前刷新或清理，保证"冲突态下 git commit"时必然写标记。
+    record_or_clear_cherry_pick_pending();
+
     let hook_type = match args.first().map(String::as_str) {
         Some(t) => t,
         None => {
@@ -1166,10 +1293,6 @@ fn handle_hook(args: &[String]) {
         }
         _ => return,
     };
-
-    // cherry-pick 手工收尾标记：必须在任何 early return 之前执行
-    //（没暂存文件/无可打点文件时也要刷新或清理标记）。
-    record_or_clear_cherry_pick_pending(&root);
 
     let changed = match Command::new("git")
         .args(["diff", "--cached", "--name-only", "--diff-filter=AM"])
