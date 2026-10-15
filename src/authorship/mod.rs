@@ -13,6 +13,7 @@ pub mod ignore;
 pub mod imara_diff_utils;
 pub mod internal_db;
 pub mod move_detection;
+pub(crate) mod orphan_claim;
 pub mod post_commit;
 
 pub mod prompt_utils;

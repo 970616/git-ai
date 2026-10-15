@@ -410,6 +410,17 @@ where
         authorship_log.metadata.base_commit_sha = commit_sha.clone();
     }
 
+    // reset --hard 换基后"重做/再检出/粘贴旧内容"的归属找回：从被丢弃链的
+    // note 按内容认领 AI 归属。放在 human 兜底之前——认领到的行不再落 h_，
+    // 未认领的行照常兜底。无登记记录时零开销（orphan_claim 模块）。
+    crate::authorship::orphan_claim::claim_content_from_orphaned_chains(
+        repo,
+        &commit_sha,
+        &parent_sha,
+        &committed_hunks_for_fill,
+        &mut authorship_log,
+    );
+
     // 兜底：本次提交引入、但仍无归属的行 → 记为该提交的 human author。
     // 覆盖无打点的手动编辑（终端操作、外部工具等），使行统计闭合成
     // "AI 或 human"，不再留下 unknown。
@@ -1177,6 +1188,16 @@ pub(crate) fn post_commit_amend_with_recovery_timestamps_detailed(
             }
         }
     }
+
+    // reset --hard 换基后"重做/再检出/粘贴旧内容"的归属找回
+    // （与普通提交路径同机制；已在上面继承块获得归属的行不会被覆盖）。
+    crate::authorship::orphan_claim::claim_content_from_orphaned_chains(
+        repo,
+        amended_commit,
+        &parent_sha,
+        &recovery_hunks,
+        &mut authorship_log,
+    );
 
     // Inject custom attributes
     let custom_attrs = Config::fresh().custom_attributes().clone();

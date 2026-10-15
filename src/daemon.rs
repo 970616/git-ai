@@ -5793,6 +5793,13 @@ impl ActorDaemonCoordinator {
                             crate::daemon::domain::ResetKind::Hard => {
                                 tracing::info!("reset (hard): deleting working log for {}", old_head);
                                 repo.storage.delete_working_log_for_base_commit(old_head)?;
+                                // 登记被丢弃的链头：后续"重做/粘贴旧内容"的提交结算时
+                                // 可按内容认领旧链 note 的 AI 归属（orphan_claim 模块，
+                                // 窄触发：无登记记录的仓库零开销）。best-effort，失败不影响
+                                // reset 处理本身。
+                                crate::authorship::orphan_claim::record_orphaned_reset_chain(
+                                    &repo, old_head, new_head,
+                                );
                             }
                             _ => {
                                 if is_ancestor_commit(&repo, new_head, old_head) {
